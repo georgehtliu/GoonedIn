@@ -16,7 +16,7 @@ class Config:
     # Perplexity API
     PERPLEXITY_API_KEY = os.getenv('PERPLEXITY_API_KEY', '')
     
-    # Flask configuration
+    # FastAPI configuration
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
     

@@ -1,138 +1,160 @@
 """
-GoonedIn Backend - Flask Application
+GoonedIn Backend - FastAPI Application
 Main application file with all API endpoints
 """
 
-from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
+from fastapi import FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import os
 from datetime import datetime
+from typing import List, Dict, Any
 
 from config import Config
 from models import Profile, Match, DataStore
 from matcher import MatchingEngine
 from perplexity_service import PerplexityService
+from schemas import (
+    ProfileCreate, ProfileResponse, ProfileListResponse, ProfileCreateResponse,
+    FindMatchesRequest, MatchResult, FindMatchesResponse,
+    LikeRequest, MatchResponse, LikeResponse,
+    PassRequest, PassResponse,
+    MatchDetailResponse, ProfileMatchesResponse,
+    CompatibilityReportResponse,
+    GenerateSamplesRequest, GenerateSamplesResponse,
+    StatsResponse, HealthResponse, ErrorResponse
+)
 
-# Initialize Flask app
-app = Flask(__name__)
-app.config.from_object(Config)
-CORS(app)  # Enable CORS for frontend
+# Initialize FastAPI app
+app = FastAPI(
+    title="GoonedIn API",
+    description="Professional networking and matching platform",
+    version="1.0.0"
+)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, replace with specific origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Initialize services
 data_store = DataStore(Config.DATA_DIR)
 matcher = MatchingEngine()
 perplexity = PerplexityService(Config.PERPLEXITY_API_KEY)
 
+# Ensure data directory exists on startup
+@app.on_event("startup")
+async def startup_event():
+    os.makedirs(Config.DATA_DIR, exist_ok=True)
+    print("=" * 50)
+    print("GoonedIn Backend Starting...")
+    print("=" * 50)
+    print(f"Data directory: {Config.DATA_DIR}")
+    print(f"Debug mode: {Config.DEBUG}")
+    print(f"Perplexity API configured: {bool(Config.PERPLEXITY_API_KEY)}")
+    print("=" * 50)
+
 # ============================================================================
 # PROFILE ENDPOINTS
 # ============================================================================
 
-@app.route('/api/profile/create', methods=['POST'])
-def create_profile():
+@app.post('/api/profile/create', response_model=ProfileCreateResponse, status_code=status.HTTP_201_CREATED)
+def create_profile(profile_data: ProfileCreate):
     """Create a new profile"""
     try:
-        data = request.json
-        
-        # Validate required fields
-        required_fields = ['name', 'age', 'job_title', 'industry', 'schedule',
-                          'ambition_level', 'stress_level', 'work_life_priority',
-                          'skills', 'goals', 'bio', 'looking_for']
-        
-        for field in required_fields:
-            if field not in data:
-                return jsonify({'error': f'Missing required field: {field}'}), 400
-        
         # Create profile
         profile = Profile(
-            name=data['name'],
-            age=int(data['age']),
-            job_title=data['job_title'],
-            industry=data['industry'],
-            schedule=data['schedule'],
-            ambition_level=int(data['ambition_level']),
-            stress_level=int(data['stress_level']),
-            work_life_priority=data['work_life_priority'],
-            skills=data['skills'],
-            goals=data['goals'],
-            bio=data['bio'],
-            looking_for=data['looking_for']
+            name=profile_data.name,
+            age=profile_data.age,
+            job_title=profile_data.job_title,
+            industry=profile_data.industry,
+            schedule=profile_data.schedule,
+            ambition_level=profile_data.ambition_level,
+            stress_level=profile_data.stress_level,
+            work_life_priority=profile_data.work_life_priority,
+            skills=profile_data.skills,
+            goals=profile_data.goals,
+            bio=profile_data.bio,
+            looking_for=profile_data.looking_for
         )
         
         # Save profile
         data_store.save_profile(profile)
         
-        return jsonify({
-            'success': True,
-            'profile': profile.to_dict(),
-            'message': 'Profile created successfully!'
-        }), 201
+        return ProfileCreateResponse(
+            success=True,
+            profile=ProfileResponse(**profile.to_dict()),
+            message='Profile created successfully!'
+        )
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.route('/api/profiles', methods=['GET'])
+@app.get('/api/profiles', response_model=ProfileListResponse)
 def get_all_profiles():
     """Get all profiles"""
     try:
         profiles = data_store.get_all_profiles()
-        return jsonify({
-            'success': True,
-            'profiles': [p.to_dict() for p in profiles],
-            'count': len(profiles)
-        }), 200
+        return ProfileListResponse(
+            success=True,
+            profiles=[ProfileResponse(**p.to_dict()) for p in profiles],
+            count=len(profiles)
+        )
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.route('/api/profile/<profile_id>', methods=['GET'])
-def get_profile(profile_id):
+@app.get('/api/profile/{profile_id}', response_model=Dict[str, Any])
+def get_profile(profile_id: str):
     """Get a specific profile"""
     try:
         profile = data_store.get_profile(profile_id)
         if not profile:
-            return jsonify({'error': 'Profile not found'}), 404
+            raise HTTPException(status_code=404, detail='Profile not found')
         
-        return jsonify({
+        return {
             'success': True,
             'profile': profile.to_dict()
-        }), 200
+        }
+    except HTTPException:
+        raise
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.route('/api/profile/<profile_id>', methods=['DELETE'])
-def delete_profile(profile_id):
+@app.delete('/api/profile/{profile_id}', response_model=Dict[str, Any])
+def delete_profile(profile_id: str):
     """Delete a profile"""
     try:
         data_store.delete_profile(profile_id)
-        return jsonify({
+        return {
             'success': True,
             'message': 'Profile deleted successfully'
-        }), 200
+        }
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============================================================================
 # MATCHING ENDPOINTS
 # ============================================================================
 
-@app.route('/api/match/find', methods=['POST'])
-def find_matches():
+@app.post('/api/match/find', response_model=FindMatchesResponse)
+def find_matches(request: FindMatchesRequest):
     """Find matches for a profile"""
     try:
-        data = request.json
-        profile_id = data.get('profile_id')
-        max_results = data.get('max_results', Config.MAX_MATCHES_PER_REQUEST)
-        
-        if not profile_id:
-            return jsonify({'error': 'profile_id is required'}), 400
+        profile_id = request.profile_id
+        max_results = request.max_results or Config.MAX_MATCHES_PER_REQUEST
         
         # Get the profile
         profile = data_store.get_profile(profile_id)
         if not profile:
-            return jsonify({'error': 'Profile not found'}), 404
+            raise HTTPException(status_code=404, detail='Profile not found')
         
         # Get all other profiles
         all_profiles = data_store.get_all_profiles()
@@ -143,40 +165,38 @@ def find_matches():
         # Format response
         match_results = []
         for match_profile, score, reasons, match_type in matches:
-            match_results.append({
-                'profile': match_profile.to_dict(),
-                'compatibility_score': score,
-                'reasons': reasons,
-                'match_type': match_type
-            })
+            match_results.append(MatchResult(
+                profile=ProfileResponse(**match_profile.to_dict()),
+                compatibility_score=score,
+                reasons=reasons,
+                match_type=match_type
+            ))
         
-        return jsonify({
-            'success': True,
-            'matches': match_results,
-            'count': len(match_results)
-        }), 200
+        return FindMatchesResponse(
+            success=True,
+            matches=match_results,
+            count=len(match_results)
+        )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.route('/api/match/like', methods=['POST'])
-def like_profile():
+@app.post('/api/match/like', response_model=LikeResponse)
+def like_profile(request: LikeRequest):
     """Like a profile"""
     try:
-        data = request.json
-        liker_id = data.get('liker_id')
-        liked_id = data.get('liked_id')
-        
-        if not liker_id or not liked_id:
-            return jsonify({'error': 'Both liker_id and liked_id are required'}), 400
+        liker_id = request.liker_id
+        liked_id = request.liked_id
         
         # Get both profiles
         liker = data_store.get_profile(liker_id)
         liked = data_store.get_profile(liked_id)
         
         if not liker or not liked:
-            return jsonify({'error': 'One or both profiles not found'}), 404
+            raise HTTPException(status_code=404, detail='One or both profiles not found')
         
         # Add to likes
         if liked_id not in liker.likes:
@@ -209,87 +229,89 @@ def like_profile():
                 liked.matches.append(match.match_id)
                 data_store.save_profile(liked)
             
-            return jsonify({
-                'success': True,
-                'is_match': True,
-                'match': match.to_dict(),
-                'message': "It's a match! 🎉"
-            }), 200
+            return LikeResponse(
+                success=True,
+                is_match=True,
+                match=MatchResponse(**match.to_dict()),
+                message="It's a match! 🎉"
+            )
         
-        return jsonify({
-            'success': True,
-            'is_match': False,
-            'message': 'Profile liked successfully'
-        }), 200
+        return LikeResponse(
+            success=True,
+            is_match=False,
+            message='Profile liked successfully'
+        )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.route('/api/match/pass', methods=['POST'])
-def pass_profile():
+@app.post('/api/match/pass', response_model=PassResponse)
+def pass_profile(request: PassRequest):
     """Pass on a profile"""
     try:
-        data = request.json
-        passer_id = data.get('passer_id')
-        passed_id = data.get('passed_id')
-        
-        if not passer_id or not passed_id:
-            return jsonify({'error': 'Both passer_id and passed_id are required'}), 400
+        passer_id = request.passer_id
+        passed_id = request.passed_id
         
         # Get profile
         passer = data_store.get_profile(passer_id)
         if not passer:
-            return jsonify({'error': 'Profile not found'}), 404
+            raise HTTPException(status_code=404, detail='Profile not found')
         
         # Add to passes
         if passed_id not in passer.passes:
             passer.passes.append(passed_id)
             data_store.save_profile(passer)
         
-        return jsonify({
-            'success': True,
-            'message': 'Profile passed'
-        }), 200
+        return PassResponse(
+            success=True,
+            message='Profile passed'
+        )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============================================================================
 # MATCH DETAILS ENDPOINTS
 # ============================================================================
 
-@app.route('/api/match/<match_id>', methods=['GET'])
-def get_match(match_id):
+@app.get('/api/match/{match_id}', response_model=MatchDetailResponse)
+def get_match(match_id: str):
     """Get match details"""
     try:
         match = data_store.get_match(match_id)
         if not match:
-            return jsonify({'error': 'Match not found'}), 404
+            raise HTTPException(status_code=404, detail='Match not found')
         
         # Get both profiles
         profile1 = data_store.get_profile(match.profile1_id)
         profile2 = data_store.get_profile(match.profile2_id)
         
-        return jsonify({
-            'success': True,
-            'match': match.to_dict(),
-            'profile1': profile1.to_dict() if profile1 else None,
-            'profile2': profile2.to_dict() if profile2 else None
-        }), 200
+        return MatchDetailResponse(
+            success=True,
+            match=MatchResponse(**match.to_dict()),
+            profile1=ProfileResponse(**profile1.to_dict()) if profile1 else None,
+            profile2=ProfileResponse(**profile2.to_dict()) if profile2 else None
+        )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.route('/api/matches/<profile_id>', methods=['GET'])
-def get_profile_matches(profile_id):
+@app.get('/api/matches/{profile_id}', response_model=ProfileMatchesResponse)
+def get_profile_matches(profile_id: str):
     """Get all matches for a profile"""
     try:
         profile = data_store.get_profile(profile_id)
         if not profile:
-            return jsonify({'error': 'Profile not found'}), 404
+            raise HTTPException(status_code=404, detail='Profile not found')
         
         matches = data_store.get_matches_for_profile(profile_id)
         
@@ -305,37 +327,39 @@ def get_profile_matches(profile_id):
                 'other_profile': other_profile.to_dict() if other_profile else None
             })
         
-        return jsonify({
-            'success': True,
-            'matches': match_details,
-            'count': len(match_details)
-        }), 200
+        return ProfileMatchesResponse(
+            success=True,
+            matches=match_details,
+            count=len(match_details)
+        )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.route('/api/compatibility/<match_id>', methods=['GET'])
-def get_compatibility_report(match_id):
+@app.get('/api/compatibility/{match_id}', response_model=CompatibilityReportResponse)
+def get_compatibility_report(match_id: str):
     """Get or generate compatibility report for a match"""
     try:
         match = data_store.get_match(match_id)
         if not match:
-            return jsonify({'error': 'Match not found'}), 404
+            raise HTTPException(status_code=404, detail='Match not found')
         
         # If report already exists, return it
         if match.compatibility_report:
-            return jsonify({
-                'success': True,
-                'report': match.compatibility_report
-            }), 200
+            return CompatibilityReportResponse(
+                success=True,
+                report=match.compatibility_report
+            )
         
         # Generate new report
         profile1 = data_store.get_profile(match.profile1_id)
         profile2 = data_store.get_profile(match.profile2_id)
         
         if not profile1 or not profile2:
-            return jsonify({'error': 'One or both profiles not found'}), 404
+            raise HTTPException(status_code=404, detail='One or both profiles not found')
         
         report = perplexity.generate_compatibility_report(
             profile1.to_dict(),
@@ -348,25 +372,26 @@ def get_compatibility_report(match_id):
         match.compatibility_report = report
         data_store.save_match(match)
         
-        return jsonify({
-            'success': True,
-            'report': report
-        }), 200
+        return CompatibilityReportResponse(
+            success=True,
+            report=report
+        )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============================================================================
 # UTILITY ENDPOINTS
 # ============================================================================
 
-@app.route('/api/generate-samples', methods=['POST'])
-def generate_sample_profiles():
+@app.post('/api/generate-samples', response_model=GenerateSamplesResponse, status_code=status.HTTP_201_CREATED)
+def generate_sample_profiles(request: GenerateSamplesRequest):
     """Generate sample profiles using Perplexity"""
     try:
-        data = request.json
-        count = data.get('count', 10)
+        count = request.count
         
         # Generate profiles
         sample_data = perplexity.generate_sample_profiles(count)
@@ -388,20 +413,20 @@ def generate_sample_profiles():
                 looking_for=profile_data['looking_for']
             )
             data_store.save_profile(profile)
-            profiles.append(profile.to_dict())
+            profiles.append(ProfileResponse(**profile.to_dict()))
         
-        return jsonify({
-            'success': True,
-            'profiles': profiles,
-            'count': len(profiles),
-            'message': f'{len(profiles)} sample profiles generated!'
-        }), 201
+        return GenerateSamplesResponse(
+            success=True,
+            profiles=profiles,
+            count=len(profiles),
+            message=f'{len(profiles)} sample profiles generated!'
+        )
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.route('/api/stats', methods=['GET'])
+@app.get('/api/stats', response_model=StatsResponse)
 def get_stats():
     """Get app statistics"""
     try:
@@ -431,43 +456,50 @@ def get_stats():
         
         avg_compatibility = sum(m.compatibility_score for m in all_matches) / len(all_matches) if all_matches else 0
         
-        return jsonify({
-            'success': True,
-            'stats': {
+        return StatsResponse(
+            success=True,
+            stats={
                 'total_profiles': total_profiles,
                 'total_likes': total_likes,
                 'total_matches': total_matches,
                 'industry_breakdown': industry_counts,
                 'average_compatibility': round(avg_compatibility, 1)
             }
-        }), 200
+        )
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.route('/api/health', methods=['GET'])
+@app.get('/api/health', response_model=HealthResponse)
 def health_check():
     """Health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'timestamp': datetime.now().isoformat(),
-        'version': '1.0.0'
-    }), 200
+    return HealthResponse(
+        status='healthy',
+        timestamp=datetime.now().isoformat(),
+        version='1.0.0',
+        message='Server is running'
+    )
 
 
 # ============================================================================
 # ERROR HANDLERS
 # ============================================================================
 
-@app.errorhandler(404)
-def not_found(error):
-    return jsonify({'error': 'Endpoint not found'}), 404
+@app.exception_handler(404)
+async def not_found_handler(request, exc):
+    return JSONResponse(
+        status_code=404,
+        content={'error': 'Endpoint not found'}
+    )
 
 
-@app.errorhandler(500)
-def internal_error(error):
-    return jsonify({'error': 'Internal server error'}), 500
+@app.exception_handler(500)
+async def internal_error_handler(request, exc):
+    return JSONResponse(
+        status_code=500,
+        content={'error': 'Internal server error'}
+    )
 
 
 # ============================================================================
@@ -475,20 +507,10 @@ def internal_error(error):
 # ============================================================================
 
 if __name__ == '__main__':
-    # Ensure data directory exists
-    os.makedirs(Config.DATA_DIR, exist_ok=True)
-    
-    print("=" * 50)
-    print("GoonedIn Backend Starting...")
-    print("=" * 50)
-    print(f"Data directory: {Config.DATA_DIR}")
-    print(f"Debug mode: {Config.DEBUG}")
-    print(f"Perplexity API configured: {bool(Config.PERPLEXITY_API_KEY)}")
-    print("=" * 50)
-    
-    # Run the app
-    app.run(
-        host='0.0.0.0',
-        port=5000,
-        debug=Config.DEBUG
+    import uvicorn
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=Config.DEBUG
     )
