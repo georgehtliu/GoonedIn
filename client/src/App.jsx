@@ -1,8 +1,109 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import Particles from 'react-particles';
 import { loadSlim } from 'tsparticles-slim';
 import { FaLinkedin } from 'react-icons/fa';
 import PackOpening from './PackOpening';
+
+// Custom Dropdown Component
+const CustomDropdown = ({ value, options, onChange, placeholder = 'Select an option...' }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  const handleSelect = (option) => {
+    onChange(option);
+    setIsOpen(false);
+  };
+
+  const displayValue = value || placeholder;
+
+  return (
+    <div className="relative dropdown-wrapper" ref={dropdownRef} style={{ zIndex: 1000 }}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full bg-white/5 text-white text-xl md:text-2xl border-2 border-white/20 rounded-2xl p-4 pr-12 focus:outline-none transition-all duration-300 cursor-pointer hover:bg-white/10 flex items-center justify-between"
+        style={{
+          height: '64px',
+          minHeight: '64px',
+          maxHeight: '64px',
+          boxSizing: 'border-box'
+        }}
+      >
+        <span className={value ? 'text-white' : 'text-white/50'}>{displayValue}</span>
+        <svg 
+          className={`w-6 h-6 text-white/60 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      
+      {isOpen && (
+        <div 
+          className="absolute top-full left-0 right-0 mt-2 bg-white/5 border-2 border-white/20 rounded-2xl shadow-2xl backdrop-blur-sm"
+          style={{
+            zIndex: 10001,
+            position: 'absolute'
+          }}
+          onWheel={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+        >
+          <div 
+            className="overflow-y-auto custom-scrollbar"
+            style={{
+              maxHeight: '250px',
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              overscrollBehavior: 'contain'
+            }}
+            onWheel={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+          >
+            {options && options.length > 0 ? (
+              options.map((option, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleSelect(option)}
+                  className={`w-full text-left px-4 py-3 text-base text-white hover:bg-white/10 transition-colors duration-200 ${
+                    value === option ? 'bg-white/15' : ''
+                  }`}
+                  style={{
+                    minHeight: '50px',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                >
+                  {option}
+                </button>
+              ))
+            ) : (
+              <div className="px-4 py-3 text-white/50 text-center">No options available</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ProfileCard = () => {
   const [isFlipped, setIsFlipped] = useState(false);
@@ -234,14 +335,82 @@ export default function DatingLandingPage() {
     {
       id: 'school',
       question: 'Which school do you prefer?',
-      type: 'text-input',
-      placeholder: 'Enter school name...'
+      type: 'dropdown',
+      options: [
+        'University of Waterloo',
+        'MIT',
+        'Stanford University',
+        'Harvard University',
+        'UC Berkeley',
+        'Carnegie Mellon University',
+        'University of Toronto',
+        'University of British Columbia',
+        'McGill University',
+        'Yale University',
+        'Princeton University',
+        'Columbia University',
+        'University of Pennsylvania',
+        'Cornell University',
+        'Duke University',
+        'Northwestern University',
+        'University of Chicago',
+        'Johns Hopkins University',
+        'Caltech',
+        'Georgia Tech',
+        'University of Texas at Austin',
+        'University of Michigan',
+        'University of Illinois',
+        'New York University',
+        'Boston University',
+        'University of Southern California',
+        'University of California, Los Angeles',
+        'University of California, San Diego',
+        'University of Washington',
+        'Other'
+      ]
     },
     {
       id: 'location',
       question: 'Where are you located?',
-      type: 'text-input',
-      placeholder: 'Enter your location...'
+      type: 'dropdown',
+      options: [
+        'San Francisco, CA',
+        'New York, NY',
+        'Los Angeles, CA',
+        'Seattle, WA',
+        'Boston, MA',
+        'Chicago, IL',
+        'Austin, TX',
+        'Toronto, ON',
+        'Vancouver, BC',
+        'Montreal, QC',
+        'Waterloo, ON',
+        'Palo Alto, CA',
+        'Mountain View, CA',
+        'Menlo Park, CA',
+        'Cupertino, CA',
+        'Redmond, WA',
+        'Cambridge, MA',
+        'Pittsburgh, PA',
+        'Atlanta, GA',
+        'Portland, OR',
+        'Denver, CO',
+        'Washington, DC',
+        'Philadelphia, PA',
+        'Miami, FL',
+        'Houston, TX',
+        'Dallas, TX',
+        'Phoenix, AZ',
+        'San Diego, CA',
+        'London, UK',
+        'Other'
+      ]
+    },
+    {
+      id: 'gender',
+      question: 'What gender partner are you looking for?',
+      options: ['Male', 'Female', 'Both'],
+      type: 'multiple-choice'
     }
   ];
 
@@ -283,6 +452,34 @@ export default function DatingLandingPage() {
       ...prev,
       [questions[currentQuestion].id]: value
     }));
+  };
+
+  const handleDropdownChange = (value) => {
+    setAnswers(prev => ({
+      ...prev,
+      [questions[currentQuestion].id]: value
+    }));
+    
+    // Auto-advance to next question when dropdown option is selected
+    if (value && value !== '') {
+      setTimeout(() => {
+        if (currentQuestion < questions.length - 1) {
+          setIsTransitioning(true);
+          setSlideDirection('forward');
+          setPrevQuestion(currentQuestion);
+          setTimeout(() => {
+            setCurrentQuestion(prev => prev + 1);
+            requestAnimationFrame(() => {
+              setIsTransitioning(false);
+            });
+          }, 500);
+        } else {
+          // Survey complete - navigate to pack opening
+          console.log('Survey answers:', { ...answers, [questions[currentQuestion].id]: value });
+          setShowPackOpening(true);
+        }
+      }, 300);
+    }
   };
 
   const handleTextSubmit = () => {
@@ -482,9 +679,12 @@ export default function DatingLandingPage() {
 
             {/* Survey Questions - Fades in simultaneously with hero fade-out */}
             {showSurvey && (
-              <div className={`absolute inset-0 w-full transition-opacity duration-300 ease-in-out ${
-                surveyStarted ? 'opacity-100' : 'opacity-0'
-              }`}>
+              <div 
+                className={`absolute inset-0 w-full transition-opacity duration-300 ease-in-out ${
+                  surveyStarted ? 'opacity-100' : 'opacity-0'
+                }`}
+                style={{ overflow: 'visible' }}
+              >
                 {/* Progress indicator - Always visible, outside transitioning content */}
                 <div className="mb-8">
                   <div className="flex justify-between items-center mb-2">
@@ -500,7 +700,7 @@ export default function DatingLandingPage() {
                 </div>
 
                 {/* Question content - Slides left/right */}
-                <div className="relative overflow-hidden">
+                <div className="relative" style={{ overflowX: 'hidden', overflowY: 'visible' }}>
                   {/* Previous question sliding out */}
                   {isTransitioning && (
                     <div 
@@ -523,6 +723,24 @@ export default function DatingLandingPage() {
                             className="flex-1 bg-transparent text-white/80 text-2xl md:text-3xl"
                           />
                           <span className="text-3xl md:text-4xl text-white/30">→</span>
+                        </div>
+                      ) : questions[prevQuestion].type === 'dropdown' ? (
+                        <div className="opacity-50 pointer-events-none">
+                          <div className="w-full bg-white/5 text-white/80 text-xl md:text-2xl border-2 border-white/20 rounded-2xl p-4 pr-12 flex items-center justify-between"
+                            style={{
+                              height: '64px',
+                              minHeight: '64px',
+                              maxHeight: '64px',
+                              boxSizing: 'border-box'
+                            }}
+                          >
+                            <span className={answers[questions[prevQuestion].id] ? 'text-white/80' : 'text-white/50'}>
+                              {answers[questions[prevQuestion].id] || 'Select an option...'}
+                            </span>
+                            <svg className="w-6 h-6 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
                         </div>
                       ) : (
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -560,7 +778,7 @@ export default function DatingLandingPage() {
                       {questions[currentQuestion].question}
                     </h2>
 
-                    {/* Multiple Choice Options or Text Input */}
+                    {/* Multiple Choice Options, Text Input, or Dropdown */}
                     {questions[currentQuestion].type === 'text-input' ? (
                       <div className="flex items-center gap-4">
                         <input
@@ -587,6 +805,13 @@ export default function DatingLandingPage() {
                           →
                         </button>
                       </div>
+                    ) : questions[currentQuestion].type === 'dropdown' ? (
+                      <CustomDropdown
+                        value={answers[questions[currentQuestion].id] || ''}
+                        options={questions[currentQuestion].options}
+                        onChange={(value) => handleDropdownChange(value)}
+                        placeholder="Select an option..."
+                      />
                     ) : (
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-2">
                         {questions[currentQuestion].options.map((option, index) => {
