@@ -310,7 +310,13 @@ const ProfileCard = () => {
   );
 };
 
-function DatingLandingPage() {
+function DatingLandingPage({
+  packCards = [],
+  onPackCardsGenerated,
+  onCardLiked,
+  packFetchError = null,
+  onPackFetchError
+}) {
   const [mousePosition, setMousePosition] = useState({ x: 50, y: 50 });
   const [surveyStarted, setSurveyStarted] = useState(false);
   const [showSurvey, setShowSurvey] = useState(false);
@@ -320,6 +326,7 @@ function DatingLandingPage() {
   const [answers, setAnswers] = useState({});
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [slideDirection, setSlideDirection] = useState('forward'); // 'forward' or 'backward'
+  const [isFetchingPack, setIsFetchingPack] = useState(false);
 
   const questions = [
     {
@@ -336,39 +343,18 @@ function DatingLandingPage() {
     },
     {
       id: 'school',
-      question: 'Which school do you prefer?',
+    question: 'Which city do you prefer?',
       type: 'dropdown',
       options: [
-        'University of Waterloo',
-        'MIT',
-        'Stanford University',
-        'Harvard University',
-        'UC Berkeley',
-        'Carnegie Mellon University',
-        'University of Toronto',
-        'University of British Columbia',
-        'McGill University',
-        'Yale University',
-        'Princeton University',
-        'Columbia University',
-        'University of Pennsylvania',
-        'Cornell University',
-        'Duke University',
-        'Northwestern University',
-        'University of Chicago',
-        'Johns Hopkins University',
-        'Caltech',
-        'Georgia Tech',
-        'University of Texas at Austin',
-        'University of Michigan',
-        'University of Illinois',
-        'New York University',
-        'Boston University',
-        'University of Southern California',
-        'University of California, Los Angeles',
-        'University of California, San Diego',
-        'University of Washington',
-        'Other'
+      'Toronto',
+      'Ottawa',
+      'New York',
+      'San Francisco',
+      'London',
+      'Montreal',
+      'Waterloo',
+      'Guelph',
+      'Kingston'
       ]
     },
     {
@@ -416,6 +402,212 @@ function DatingLandingPage() {
     }
   ];
 
+  const completeSurvey = useCallback(async (finalAnswers) => {
+    const cityRaw = finalAnswers['school'];
+    const genderSelection = finalAnswers['gender'];
+
+    if (!cityRaw || !genderSelection) {
+      console.warn('Missing city or gender selection; falling back to default pack.', {
+        cityRaw,
+        genderSelection
+      });
+      onPackFetchError?.('Please provide both a city preference and a gender preference.');
+      onPackCardsGenerated?.([]);
+      setShowPackOpening(true);
+      return;
+    }
+
+    const normalizedGender = genderSelection.toLowerCase();
+    const genderQueries =
+      normalizedGender === 'both'
+        ? ['man', 'woman']
+        : normalizedGender === 'male'
+          ? ['man']
+          : normalizedGender === 'female'
+            ? ['woman']
+            : [];
+
+    if (!genderQueries.length) {
+      const message = `Unsupported gender selection "${genderSelection}".`;
+      console.warn(message);
+      onPackFetchError?.(message);
+      onPackCardsGenerated?.([]);
+      setShowPackOpening(true);
+      return;
+    }
+
+    const originalCity = cityRaw.trim();
+    const cityQuery = originalCity.toLowerCase();
+
+    const mapRowToCard = (row, index, genderOption) => {
+      if (!row || typeof row !== 'object') {
+        return null;
+      }
+
+      const getString = (...keys) => {
+        for (const key of keys) {
+          const value = row?.[key];
+          if (typeof value === 'string' && value.trim()) {
+            return value.trim();
+          }
+        }
+        return undefined;
+      };
+
+      const firstName = getString('firstName', 'givenName');
+      const lastName = getString('lastName', 'familyName');
+
+      let fullName =
+        getString('fullName', 'name', 'profileFullName', 'profileName') ||
+        [firstName, lastName].filter(Boolean).join(' ').trim();
+      if (!fullName) {
+        fullName = `LinkedIn Candidate ${index + 1}`;
+      }
+
+      const location =
+        getString('location', 'locationName', 'geo', 'city', 'headlineLocation') || originalCity;
+
+      let headline = getString('headline', 'occupation', 'title', 'jobTitle', 'summary', 'position');
+      const companyRaw = getString('company', 'companyName', 'currentCompany', 'employer', 'organization');
+      let resolvedCompany = companyRaw;
+      if (!resolvedCompany && headline) {
+        const atMatch = headline.match(/\bat\s+(.+)/i);
+        if (atMatch) {
+          resolvedCompany = atMatch[1].trim();
+        }
+      }
+
+      const major =
+        getString('education', 'school', 'schoolName', 'degree', 'fieldOfStudy', 'program') ||
+        headline ||
+        'LinkedIn Search Result';
+
+      const linkedinUrl =
+        getString('profileUrl', 'linkedinUrl', 'publicProfileUrl', 'url', 'profile', 'profileLink') ||
+        'https://www.linkedin.com';
+
+      const imageUrl =
+        getString(
+          'profilePictureUrl',
+          'profilePictureUrlOriginal',
+          'pictureUrl',
+          'imageUrl',
+          'avatarUrl',
+          'profileImageUrl',
+          'photoUrl'
+        ) ||
+        `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=111111&color=ff66cc`;
+
+      let interests = [];
+      const skillsValue = row?.skills;
+      if (Array.isArray(skillsValue) && skillsValue.length) {
+        interests = skillsValue.map((skill) => String(skill)).filter(Boolean).slice(0, 4);
+      } else if (typeof skillsValue === 'string' && skillsValue.trim()) {
+        interests = skillsValue
+          .split(/[,;•|]/)
+          .map((skill) => skill.trim())
+          .filter(Boolean)
+          .slice(0, 4);
+      } else if (headline) {
+        interests = headline
+          .split(/[,;•|]/)
+          .map((segment) => segment.trim())
+          .filter(Boolean)
+          .slice(0, 4);
+      }
+
+      const rarity =
+        index === 0 ? 'legendary' : index === 1 ? 'epic' : index <= 3 ? 'rare' : 'common';
+
+      const bio =
+        getString('summary', 'about', 'description', 'bio') ||
+        headline ||
+        `Based in ${location}`;
+
+      const idCandidate =
+        getString('id', 'profileId', 'recordId') ||
+        row?.profileUrl ||
+        row?.publicProfileUrl ||
+        `phantom-${genderOption}-${index}-${Date.now()}`;
+
+      return {
+        id: String(idCandidate),
+        name: fullName,
+        major,
+        company: resolvedCompany || headline || 'Open to opportunities',
+        image: imageUrl,
+        rarity,
+        bio,
+        location,
+        interests,
+        email: getString('email', 'emailAddress'),
+        linkedin: linkedinUrl,
+        headline,
+        gender: genderOption
+      };
+    };
+
+    setIsFetchingPack(true);
+    onPackFetchError?.(null);
+
+    try {
+      const results = await Promise.all(
+        genderQueries.map(async (genderOption) => {
+          const url = `http://127.0.0.1:8000/phantombuster/search-cache?query=${encodeURIComponent(
+            cityQuery
+          )}&gender=${genderOption}`;
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`Request failed with status ${response.status}`);
+          }
+          const data = await response.json();
+          console.log(`[PhantomBuster] city="${cityQuery}" gender="${genderOption}"`, data);
+          return { gender: genderOption, data };
+        })
+      );
+
+      const aggregatedCards = [];
+      const seenProfiles = new Set();
+
+      results.forEach(({ gender: genderOption, data }) => {
+        const rows = Array.isArray(data?.csv_data) ? data.csv_data : [];
+        rows.forEach((row) => {
+          const card = mapRowToCard(row, aggregatedCards.length, genderOption);
+          if (!card) {
+            return;
+          }
+          const dedupeKey = (card.linkedin || `${card.name}-${card.location}`).toLowerCase();
+          if (seenProfiles.has(dedupeKey)) {
+            return;
+          }
+          seenProfiles.add(dedupeKey);
+          aggregatedCards.push(card);
+        });
+      });
+
+      if (!aggregatedCards.length) {
+        throw new Error('No LinkedIn profiles returned for this search.');
+      }
+
+      onPackCardsGenerated?.(aggregatedCards);
+      try {
+        localStorage.removeItem('daily-pack-claimed');
+      } catch {
+        // ignore storage errors
+      }
+      setShowPackOpening(true);
+    } catch (error) {
+      console.error('Error fetching PhantomBuster search cache:', error);
+      const message =
+        error instanceof Error ? error.message : 'Unable to load search results.';
+      onPackFetchError?.(message);
+      onPackCardsGenerated?.([]);
+      setShowPackOpening(true);
+    } finally {
+      setIsFetchingPack(false);
+    }
+  }, [onPackCardsGenerated, onPackFetchError]);
+
   const handleStartSurvey = () => {
     setShowSurvey(true); // Render survey in DOM first (at opacity-0)
     // Use requestAnimationFrame to ensure survey is in DOM before starting fade
@@ -424,11 +616,14 @@ function DatingLandingPage() {
     });
   };
 
-  const handleAnswer = (option) => {
-    setAnswers(prev => ({
-      ...prev,
-      [questions[currentQuestion].id]: option
-    }));
+  const handleAnswer = async (option) => {
+    const questionId = questions[currentQuestion].id;
+    const updatedAnswers = {
+      ...answers,
+      [questionId]: option
+    };
+
+    setAnswers(updatedAnswers);
 
     // Slide out current question to left, then slide in next question from right
     if (currentQuestion < questions.length - 1) {
@@ -444,8 +639,8 @@ function DatingLandingPage() {
       }, 500);
     } else {
       // Survey complete - navigate to pack opening
-      console.log('Survey answers:', { ...answers, [questions[currentQuestion].id]: option });
-      setShowPackOpening(true);
+      console.log('Survey answers:', updatedAnswers);
+      await completeSurvey(updatedAnswers);
     }
   };
 
@@ -457,10 +652,13 @@ function DatingLandingPage() {
   };
 
   const handleDropdownChange = (value) => {
-    setAnswers(prev => ({
-      ...prev,
-      [questions[currentQuestion].id]: value
-    }));
+    const questionId = questions[currentQuestion].id;
+    const updatedAnswers = {
+      ...answers,
+      [questionId]: value
+    };
+
+    setAnswers(updatedAnswers);
     
     // Auto-advance to next question when dropdown option is selected
     if (value && value !== '') {
@@ -477,13 +675,13 @@ function DatingLandingPage() {
           }, 500);
         } else {
           // Survey complete - navigate to pack opening
-          console.log('Survey answers:', { ...answers, [questions[currentQuestion].id]: value });
-          setShowPackOpening(true);
+          console.log('Survey answers:', updatedAnswers);
+          void completeSurvey(updatedAnswers);
         }
       }, 300);
     }
   };
-  const handleTextSubmit = () => {
+  const handleTextSubmit = async () => {
     const currentAnswer = answers[questions[currentQuestion].id];
     if (currentAnswer && currentAnswer.trim() !== '') {
       // Slide out current question to left, then slide in next question from right
@@ -500,7 +698,7 @@ function DatingLandingPage() {
       } else {
         // Survey complete - navigate to pack opening
         console.log('Survey answers:', answers);
-        setShowPackOpening(true);
+        await completeSurvey(answers);
       }
     }
   };
@@ -618,9 +816,28 @@ function DatingLandingPage() {
   const parallaxX = (mousePosition.x - 50) * 0.02;
   const parallaxY = (mousePosition.y - 50) * 0.02;
 
+  // Show loading state while fetching pack data
+  if (isFetchingPack) {
+    return (
+      <div className="h-screen w-screen bg-black text-white overflow-hidden fixed inset-0 flex flex-col items-center justify-center gap-6">
+        <div className="relative">
+          <div className="w-24 h-24 border-4 border-pink-400 border-t-transparent rounded-full animate-spin"></div>
+          <span className="absolute inset-0 flex items-center justify-center text-3xl">⏳</span>
+        </div>
+        <p className="text-xl text-white/80">Curating your pack...</p>
+      </div>
+    );
+  }
+
   // Show PackOpening after survey is complete
   if (showPackOpening) {
-    return <PackOpening />;
+    return (
+      <PackOpening
+        cards={packCards}
+        fetchError={packFetchError}
+        onCardLiked={onCardLiked}
+      />
+    );
   }
 
   return (
@@ -872,6 +1089,8 @@ function DatingLandingPage() {
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [likedCards, setLikedCards] = useState([]);
+  const [packCards, setPackCards] = useState([]);
+  const [packFetchError, setPackFetchError] = useState(null);
 
   const handleCardLiked = (card) => {
     setLikedCards((prev) => [...prev, card]);
@@ -936,8 +1155,22 @@ export default function App() {
 
       {/* Tab Content */}
       <div className="h-full pt-20">
-        {activeTab === 'home' && <DatingLandingPage />}
-        {activeTab === 'pack' && <PackOpening onCardLiked={handleCardLiked} />}
+        {activeTab === 'home' && (
+          <DatingLandingPage
+            packCards={packCards}
+            onPackCardsGenerated={setPackCards}
+            onCardLiked={handleCardLiked}
+            packFetchError={packFetchError}
+            onPackFetchError={setPackFetchError}
+          />
+        )}
+        {activeTab === 'pack' && (
+          <PackOpening
+            onCardLiked={handleCardLiked}
+            cards={packCards}
+            fetchError={packFetchError}
+          />
+        )}
         {activeTab === 'roster' && <Roster likedCards={likedCards} onRemoveCard={handleCardRemoved} />}
         {activeTab === 'messages' && <MessageComposer rosterCards={likedCards} />}
       </div>

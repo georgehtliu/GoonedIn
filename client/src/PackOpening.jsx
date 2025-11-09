@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Particles from 'react-particles';
 import { loadSlim } from 'tsparticles-slim';
-import { useCallback } from 'react';
 import { FaLinkedin } from 'react-icons/fa';
 
 const rawApiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -651,7 +650,11 @@ const SwipeableCard = ({ card, onSwipe, isRevealed, isActive, onFlip, attractive
 };
 
 // Pack Opening Component
-const PackOpening = ({ onCardLiked = null }) => {
+const PackOpening = ({
+  onCardLiked = null,
+  cards: cardsProp = null,
+  fetchError = null
+}) => {
   const [packOpened, setPackOpened] = useState(false);
   const [currentPack, setCurrentPack] = useState([]);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
@@ -667,6 +670,76 @@ const PackOpening = ({ onCardLiked = null }) => {
     }
   });
   const fetchRequestIdRef = useRef(0);
+
+  const cardsPool = useMemo(() => {
+    if (Array.isArray(cardsProp) && cardsProp.length > 0) {
+      const sanitized = cardsProp.map((card, index) => {
+        const rawName = typeof card?.name === 'string' ? card.name.trim() : '';
+        const fallbackName = rawName || `LinkedIn Candidate ${index + 1}`;
+        const hasImage = typeof card?.image === 'string' && card.image.trim();
+        const imageUrl =
+          hasImage
+            ? card.image.trim()
+            : `https://ui-avatars.com/api/?name=${encodeURIComponent(fallbackName)}&background=111111&color=ff66cc`;
+        const rarity =
+          card?.rarity ||
+          (index === 0 ? 'legendary' : index === 1 ? 'epic' : index <= 3 ? 'rare' : 'common');
+        const headline = typeof card?.headline === 'string' ? card.headline : card?.bio;
+        const derivedInterests =
+          Array.isArray(card?.interests) && card.interests.length
+            ? card.interests
+            : headline
+                ?.split(/[,;•|]/)
+                .map((segment) => segment.trim())
+                .filter(Boolean)
+                .slice(0, 4) ?? [];
+
+        return {
+          ...card,
+          id: card?.id ?? `search-card-${index}`,
+          name: fallbackName,
+          image: imageUrl,
+          rarity,
+          major: card?.major || headline || 'LinkedIn Search Result',
+          company: card?.company || headline || 'Open to opportunities',
+          bio: card?.bio || headline || '',
+          location: card?.location || '',
+          interests: derivedInterests,
+          linkedin: card?.linkedin || 'https://www.linkedin.com'
+        };
+      });
+
+      if (sanitized.length < 5) {
+        const needed = 5 - sanitized.length;
+        const filler = SAMPLE_CARDS.slice(0, needed).map((card, idx) => ({
+          ...card,
+          id: `filler-${card.id}-${idx}`
+        }));
+        return [...sanitized, ...filler];
+      }
+
+      return sanitized;
+    }
+
+    return SAMPLE_CARDS;
+  }, [cardsProp]);
+
+  useEffect(() => {
+    if (Array.isArray(cardsProp)) {
+      setPackOpened(false);
+      setCurrentPack([]);
+      setCurrentCardIndex(0);
+      setRevealedCards([]);
+      setAttractivenessScores({});
+      setIsScoring(false);
+      setPackCompleted(false);
+      try {
+        localStorage.removeItem('daily-pack-claimed');
+      } catch {
+        // ignore storage errors
+      }
+    }
+  }, [cardsProp]);
 
   const resetDailyLock = useCallback(() => {
     try {
@@ -833,32 +906,37 @@ const PackOpening = ({ onCardLiked = null }) => {
     if (packCompleted) {
       return;
     }
+    if (!cardsPool.length) {
+      console.warn('No cards available to open a pack.');
+      return;
+    }
     // Rarity order: legendary > epic > rare > common
     const rarityOrder = { legendary: 4, epic: 3, rare: 2, common: 1 };
     
     // Find all cards with the highest rarity
-    const sortedByRarity = [...SAMPLE_CARDS].sort((a, b) => {
+    const sortedByRarity = [...cardsPool].sort((a, b) => {
       return rarityOrder[b.rarity] - rarityOrder[a.rarity];
     });
     
     // Get the highest rarity value
-    const highestRarity = sortedByRarity[0].rarity;
+    const highestRarity = sortedByRarity[0]?.rarity ?? 'common';
     
     // Find all cards with the highest rarity
-    const highestRarityCards = SAMPLE_CARDS.filter(card => card.rarity === highestRarity);
+    const highestRarityCards = cardsPool.filter(card => card.rarity === highestRarity);
     
     // Randomly select one card from the highest rarity tier
-    const bestCard = highestRarityCards[Math.floor(Math.random() * highestRarityCards.length)];
+    const bestCardSource = highestRarityCards.length ? highestRarityCards : cardsPool;
+    const bestCard = bestCardSource[Math.floor(Math.random() * bestCardSource.length)];
     
     // Get remaining cards (excluding the best card)
-    const remainingCards = SAMPLE_CARDS.filter(card => card.id !== bestCard.id);
+    const remainingCards = cardsPool.filter(card => card.id !== bestCard.id);
     
     // Randomly select 4 cards from remaining
     const shuffled = [...remainingCards].sort(() => Math.random() - 0.5);
-    const randomCards = shuffled.slice(0, 4);
+    const randomCards = shuffled.slice(0, Math.min(4, shuffled.length));
     
     // Create pack with best card at the end (index 4)
-    const pack = [...randomCards, bestCard];
+    const pack = [...randomCards, bestCard].slice(0, Math.min(cardsPool.length, 5));
     
     setCurrentPack(pack);
     setPackOpened(true);
@@ -955,6 +1033,11 @@ const PackOpening = ({ onCardLiked = null }) => {
 
       {/* Content */}
       <div className="relative z-20 h-full flex flex-col items-center justify-center px-6 py-12">
+        {fetchError && (
+          <div className="mb-6 max-w-3xl text-center px-4 py-3 rounded-2xl border border-red-500/40 bg-red-500/10 text-red-200 backdrop-blur">
+            {fetchError}
+          </div>
+        )}
         {!packOpened ? (
           packCompleted ? (
             // Pack completed screen
