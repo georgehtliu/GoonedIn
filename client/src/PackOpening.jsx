@@ -56,7 +56,7 @@ const SAMPLE_CARDS = [
     major: 'Design @RISD',
     company: 'UX Designer @Apple',
     image: null,
-    rarity: 'common',
+    rarity: 'rare',
     bio: 'Designing beautiful experiences. Art lover and foodie.',
     location: 'Cupertino, CA',
     interests: ['Design', 'Art', 'Food', 'Photography'],
@@ -101,7 +101,7 @@ const SAMPLE_CARDS = [
     major: 'CS @Berkeley',
     company: 'Software Engineer @Meta',
     image: null,
-    rarity: 'common',
+    rarity: 'rare',
     bio: 'Full-stack developer. Love open source and gaming.',
     location: 'Menlo Park, CA',
     interests: ['Coding', 'Gaming', 'Open Source', 'Biking'],
@@ -161,7 +161,7 @@ const SAMPLE_CARDS = [
     major: 'CS @Georgia Tech',
     company: 'Senior Engineer @Amazon',
     image: null,
-    rarity: 'common',
+    rarity: 'rare',
     bio: 'Cloud architect and AWS enthusiast. Love building scalable systems.',
     location: 'Seattle, WA',
     interests: ['Cloud Computing', 'AWS', 'Hiking', 'Board Games'],
@@ -296,7 +296,7 @@ const SAMPLE_CARDS = [
     major: 'Data Science @Berkeley',
     company: 'Data Scientist @Netflix',
     image: null,
-    rarity: 'common',
+    rarity: 'rare',
     bio: 'Analyzing data to improve user experience. Movie buff and foodie.',
     location: 'Los Gatos, CA',
     interests: ['Data Science', 'Movies', 'Food', 'Yoga'],
@@ -326,7 +326,7 @@ const SAMPLE_CARDS = [
     major: 'Design @Parsons',
     company: 'UX Designer @Figma',
     image: null,
-    rarity: 'common',
+    rarity: 'rare',
     bio: 'Designing tools for designers. Art lover and coffee enthusiast.',
     location: 'San Francisco, CA',
     interests: ['Design', 'Art', 'Coffee', 'Photography'],
@@ -341,7 +341,7 @@ const SAMPLE_CARDS = [
     major: 'CS @Carnegie Mellon',
     company: 'Security Engineer @Palantir',
     image: null,
-    rarity: 'common',
+    rarity: 'epic',
     bio: 'Protecting systems from threats. Cybersecurity expert and chess player.',
     location: 'Palo Alto, CA',
     interests: ['Cybersecurity', 'Chess', 'Cryptography', 'Hiking'],
@@ -371,7 +371,7 @@ const SAMPLE_CARDS = [
     major: 'Engineering @Caltech',
     company: 'Research Engineer @Google X',
     image: null,
-    rarity: 'epic', // Change to epic
+    rarity: 'epic',
     bio: 'Working on moonshot projects. Innovation enthusiast and maker.',
     location: 'Mountain View, CA',
     interests: ['Innovation', 'Research', 'Making', 'Surfing'],
@@ -379,6 +379,231 @@ const SAMPLE_CARDS = [
     experience: '5 years',
     email: 'jordan.miller@google.com',
     linkedin: 'https://linkedin.com/in/jordan-miller'
+  },
+  {
+    id: 26,
+    name: 'Taylor Swift',
+    major: 'Music @NYU',
+    company: 'Singer @Republic Records',
+    image: null,
+    rarity: 'uncommon',
+    bio: 'Songwriter and performer. Love cats and baking.',
+    location: 'Nashville, TN',
+    interests: ['Music', 'Cats', 'Baking', 'Fashion'],
+    age: 34,
+    experience: '15 years',
+    email: 'taylor.swift@republic.com',
+    linkedin: 'https://linkedin.com/in/taylor-swift'
+  },
+  {
+    id: 27,
+    name: 'Robert Chen',
+    major: 'Engineering @MIT',
+    company: 'Senior Engineer @Apple',
+    image: null,
+    rarity: 'rare',
+    bio: 'Building next-gen hardware. Photography enthusiast.',
+    location: 'Cupertino, CA',
+    interests: ['Hardware', 'Photography', 'Hiking', 'Tech'],
+    age: 31,
+    experience: '9 years',
+    email: 'robert.chen@apple.com',
+    linkedin: 'https://linkedin.com/in/robert-chen'
+  },
+  {
+    id: 28,
+    name: 'Amanda Foster',
+    major: 'Business @Wharton',
+    company: 'VP @JP Morgan',
+    image: null,
+    rarity: 'uncommon',
+    bio: 'Finance executive. Love traveling and wine tasting.',
+    location: 'New York, NY',
+    interests: ['Finance', 'Travel', 'Wine', 'Reading'],
+    age: 33,
+    experience: '11 years',
+    email: 'amanda.foster@jpmorgan.com',
+    linkedin: 'https://linkedin.com/in/amanda-foster'
+  },
+  {
+    id: 29,
+    name: 'Brian Lee',
+    major: 'CS @Stanford',
+    company: 'Staff Engineer @Google',
+    image: null,
+    rarity: 'rare',
+    bio: 'Full-stack engineer. Love open source and contributing.',
+    location: 'Mountain View, CA',
+    interests: ['Coding', 'Open Source', 'Gaming', 'Biking'],
+    age: 29,
+    experience: '7 years',
+    email: 'brian.lee@google.com',
+    linkedin: 'https://linkedin.com/in/brian-lee'
+  },
+  {
+    id: 30,
+    name: 'Catherine Park',
+    major: 'Design @ArtCenter',
+    company: 'Senior Designer @Apple',
+    image: null,
+    rarity: 'rare',
+    bio: 'Creating beautiful interfaces. Art collector and museum goer.',
+    location: 'Cupertino, CA',
+    interests: ['Design', 'Art', 'Museums', 'Photography'],
+    age: 28,
+    experience: '6 years',
+    email: 'catherine.park@apple.com',
+    linkedin: 'https://linkedin.com/in/catherine-park'
+  },
+  {
+    id: 31,
+    name: 'Derek Martinez',
+    major: 'Engineering @Berkeley',
+    company: 'Engineer @Tesla',
+    image: null,
+    rarity: 'uncommon',
+    bio: 'Working on electric vehicles. Car enthusiast and runner.',
+    location: 'Fremont, CA',
+    interests: ['EVs', 'Cars', 'Running', 'Tech'],
+    age: 26,
+    experience: '4 years',
+    email: 'derek.martinez@tesla.com',
+    linkedin: 'https://linkedin.com/in/derek-martinez'
+  },
+  {
+    id: 32,
+    name: 'Fiona Zhang',
+    major: 'Data Science @CMU',
+    company: 'Data Scientist @Meta',
+    image: null,
+    rarity: 'rare',
+    bio: 'Analyzing user behavior. Love data visualization and yoga.',
+    location: 'Menlo Park, CA',
+    interests: ['Data Science', 'Visualization', 'Yoga', 'Reading'],
+    age: 27,
+    experience: '5 years',
+    email: 'fiona.zhang@meta.com',
+    linkedin: 'https://linkedin.com/in/fiona-zhang'
+  },
+  {
+    id: 33,
+    name: 'Gregory White',
+    major: 'Business @Harvard',
+    company: 'Consultant @BCG',
+    image: null,
+    rarity: 'uncommon',
+    bio: 'Strategy consultant. Love reading and traveling.',
+    location: 'Boston, MA',
+    interests: ['Strategy', 'Consulting', 'Reading', 'Travel'],
+    age: 30,
+    experience: '8 years',
+    email: 'gregory.white@bcg.com',
+    linkedin: 'https://linkedin.com/in/gregory-white'
+  },
+  {
+    id: 34,
+    name: 'Hannah Kim',
+    major: 'Medicine @Johns Hopkins',
+    company: 'Doctor @Mayo Clinic',
+    image: null,
+    rarity: 'rare',
+    bio: 'Dedicated physician. Love helping people and running.',
+    location: 'Rochester, MN',
+    interests: ['Medicine', 'Helping Others', 'Running', 'Reading'],
+    age: 32,
+    experience: '10 years',
+    email: 'hannah.kim@mayoclinic.org',
+    linkedin: 'https://linkedin.com/in/hannah-kim'
+  },
+  {
+    id: 35,
+    name: 'Ian Thompson',
+    major: 'CS @MIT',
+    company: 'Engineer @Amazon',
+    image: null,
+    rarity: 'uncommon',
+    bio: 'Cloud engineer. Love building scalable systems and gaming.',
+    location: 'Seattle, WA',
+    interests: ['Cloud', 'Systems', 'Gaming', 'Hiking'],
+    age: 28,
+    experience: '6 years',
+    email: 'ian.thompson@amazon.com',
+    linkedin: 'https://linkedin.com/in/ian-thompson'
+  },
+  {
+    id: 36,
+    name: 'Jennifer Lopez',
+    major: 'Marketing @UCLA',
+    company: 'Marketing Director @Nike',
+    image: null,
+    rarity: 'uncommon',
+    bio: 'Building brand awareness. Fitness enthusiast and traveler.',
+    location: 'Portland, OR',
+    interests: ['Marketing', 'Fitness', 'Travel', 'Fashion'],
+    age: 29,
+    experience: '7 years',
+    email: 'jennifer.lopez@nike.com',
+    linkedin: 'https://linkedin.com/in/jennifer-lopez'
+  },
+  {
+    id: 37,
+    name: 'Kyle Anderson',
+    major: 'Engineering @Caltech',
+    company: 'Engineer @SpaceX',
+    image: null,
+    rarity: 'rare',
+    bio: 'Building rockets. Space enthusiast and rock climber.',
+    location: 'Hawthorne, CA',
+    interests: ['Space', 'Engineering', 'Rock Climbing', 'Sci-Fi'],
+    age: 27,
+    experience: '5 years',
+    email: 'kyle.anderson@spacex.com',
+    linkedin: 'https://linkedin.com/in/kyle-anderson'
+  },
+  {
+    id: 38,
+    name: 'Lauren Brown',
+    major: 'Finance @Wharton',
+    company: 'Analyst @Goldman Sachs',
+    image: null,
+    rarity: 'uncommon',
+    bio: 'Financial analyst. Love cooking and wine.',
+    location: 'New York, NY',
+    interests: ['Finance', 'Cooking', 'Wine', 'Travel'],
+    age: 25,
+    experience: '3 years',
+    email: 'lauren.brown@gs.com',
+    linkedin: 'https://linkedin.com/in/lauren-brown'
+  },
+  {
+    id: 39,
+    name: 'Matthew Davis',
+    major: 'CS @Stanford',
+    company: 'Engineer @Meta',
+    image: null,
+    rarity: 'rare',
+    bio: 'Full-stack developer. Love coding and gaming.',
+    location: 'Menlo Park, CA',
+    interests: ['Coding', 'Gaming', 'Open Source', 'Biking'],
+    age: 26,
+    experience: '4 years',
+    email: 'matthew.davis@meta.com',
+    linkedin: 'https://linkedin.com/in/matthew-davis'
+  },
+  {
+    id: 40,
+    name: 'Nicole Wilson',
+    major: 'Design @RISD',
+    company: 'Designer @Apple',
+    image: null,
+    rarity: 'uncommon',
+    bio: 'Creating beautiful designs. Art lover and photographer.',
+    location: 'Cupertino, CA',
+    interests: ['Design', 'Art', 'Photography', 'Food'],
+    age: 24,
+    experience: '2 years',
+    email: 'nicole.wilson@apple.com',
+    linkedin: 'https://linkedin.com/in/nicole-wilson'
   }
 ];
 
@@ -395,13 +620,17 @@ const SwipeableCard = ({ card, onSwipe, onReveal, isRevealed, isActive }) => {
   const getRarityColor = (rarity) => {
     switch (rarity) {
       case 'legendary':
-        return 'from-yellow-500 via-orange-500 to-red-500';
+        return 'from-yellow-400 via-yellow-500 to-yellow-600';
       case 'epic':
-        return 'from-purple-500 via-pink-500 to-purple-500';
+        return 'from-purple-500 via-purple-600 to-purple-700';
       case 'rare':
-        return 'from-blue-500 via-cyan-500 to-blue-500';
+        return 'from-blue-500 via-blue-600 to-blue-700';
+      case 'uncommon':
+        return 'from-gray-500 via-gray-600 to-gray-700';
+      case 'common':
+        return 'from-green-500 via-green-600 to-green-700';
       default:
-        return 'from-gray-500 via-gray-400 to-gray-500';
+        return 'from-gray-500 via-gray-600 to-gray-700';
     }
   };
 
@@ -809,6 +1038,8 @@ const PackOpening = ({ onCardLiked }) => {
   };
 
   const handleSwipe = (direction) => {
+    if (currentCardIndex >= currentPack.length) return;
+    
     const currentCard = currentPack[currentCardIndex];
     
     if (direction === 'right') {
@@ -852,9 +1083,10 @@ const PackOpening = ({ onCardLiked }) => {
     setIsRevealing(false);
   };
 
-  const currentCard = currentPack[currentCardIndex];
-  const isCurrentCardRevealed = revealedCards.includes(currentCardIndex);
+  const currentCard = currentCardIndex < currentPack.length ? currentPack[currentCardIndex] : null;
+  const isCurrentCardRevealed = currentCardIndex < currentPack.length && revealedCards.includes(currentCardIndex);
   const hasMoreCards = currentCardIndex < currentPack.length - 1;
+  const isPackComplete = currentCardIndex >= currentPack.length;
 
   return (
     <div className="h-screen w-screen bg-black text-white overflow-hidden fixed inset-0">
@@ -880,13 +1112,13 @@ const PackOpening = ({ onCardLiked }) => {
             </p>
             <div className="relative inline-block">
               {/* Glow layers */}
-              <div className="absolute inset-0 rounded-full bg-yellow-500 blur-xl opacity-75 animate-pulse-glow"></div>
-              <div className="absolute inset-0 rounded-full bg-orange-400 blur-2xl opacity-50 animate-pulse-glow-delayed"></div>
-              <div className="absolute -inset-1 rounded-full bg-red-300 blur-sm opacity-60 animate-pulse-glow-slow"></div>
+              <div className="absolute inset-0 rounded-full bg-pink-500 blur-xl opacity-75 animate-pulse-glow"></div>
+              <div className="absolute inset-0 rounded-full bg-pink-400 blur-2xl opacity-50 animate-pulse-glow-delayed"></div>
+              <div className="absolute -inset-1 rounded-full bg-pink-300 blur-sm opacity-60 animate-pulse-glow-slow"></div>
               {/* Pack button */}
               <button
                 onClick={openPack}
-                className="relative bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 text-white px-16 py-8 rounded-full text-3xl font-bold transition-all duration-300 shadow-[0_0_30px_rgba(234,179,8,0.6),0_0_60px_rgba(234,179,8,0.4)] hover:shadow-[0_0_40px_rgba(234,179,8,0.8),0_0_80px_rgba(234,179,8,0.6)] hover:scale-105 active:scale-95"
+                className="relative bg-gradient-to-r from-pink-500 via-pink-400 to-pink-500 text-white px-16 py-8 rounded-full text-3xl font-bold transition-all duration-300 shadow-[0_0_30px_rgba(236,72,153,0.6),0_0_60px_rgba(236,72,153,0.4)] hover:shadow-[0_0_40px_rgba(236,72,153,0.8),0_0_80px_rgba(236,72,153,0.6)] hover:scale-105 active:scale-95"
               >
                 <span className="text-4xl mr-3">📦</span>
                 Open Pack
@@ -897,7 +1129,11 @@ const PackOpening = ({ onCardLiked }) => {
           // Pack opening screen
           <div className="w-full max-w-4xl h-full flex flex-col items-center justify-center">
             <div className="text-center mb-6">
-              <h2 className="text-3xl font-bold mb-2">Card {currentCardIndex + 1} of {currentPack.length}</h2>
+              {currentCardIndex < currentPack.length ? (
+                <h2 className="text-3xl font-bold mb-2">Card {currentCardIndex + 1} of {currentPack.length}</h2>
+              ) : (
+                <h2 className="text-3xl font-bold mb-2">Pack Complete!</h2>
+              )}
               <p className="text-white/70 text-sm">
                 {isRevealing ? 'Revealing...' : isCurrentCardRevealed ? 'Swipe left to pass, right to like' : 'Revealing card...'}
               </p>
@@ -905,7 +1141,7 @@ const PackOpening = ({ onCardLiked }) => {
 
             {/* Card stack */}
             <div className="relative w-full max-w-md h-[600px] flex items-center justify-center touch-none">
-              {currentPack.map((card, index) => {
+              {!isPackComplete && currentPack.map((card, index) => {
                 const isRevealed = revealedCards.includes(index);
                 const isActive = index === currentCardIndex && isRevealed;
                 
@@ -927,8 +1163,8 @@ const PackOpening = ({ onCardLiked }) => {
               })}
 
               {/* Pack wrapper for unrevealed cards */}
-              {!isCurrentCardRevealed && currentCard && (
-                <div className="absolute w-80 h-[600px] rounded-3xl overflow-hidden shadow-2xl border-4 border-yellow-400/50 bg-gradient-to-br from-yellow-600 via-orange-600 to-red-600 flex items-center justify-center animate-pulse pointer-events-none">
+              {!isPackComplete && !isCurrentCardRevealed && currentCard && (
+                <div className="absolute w-80 h-[600px] rounded-3xl overflow-hidden shadow-2xl border-4 border-pink-400/50 bg-gradient-to-br from-pink-600 via-purple-600 to-blue-600 flex items-center justify-center animate-pulse pointer-events-none">
                   <div className="text-center p-8">
                     <div className="text-8xl mb-4 animate-bounce-slow">📦</div>
                     <div className="text-white text-2xl font-bold mb-2">Daily Pack</div>
@@ -938,14 +1174,14 @@ const PackOpening = ({ onCardLiked }) => {
               )}
 
               {/* No more cards message */}
-              {!hasMoreCards && isCurrentCardRevealed && (
+              {isPackComplete && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="text-center">
                     <div className="text-4xl mb-4">✨</div>
                     <div className="text-2xl font-bold mb-2">Pack Complete!</div>
                     <button
                       onClick={resetPack}
-                      className="mt-4 px-8 py-4 bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-full font-semibold hover:scale-105 transition-transform shadow-lg"
+                      className="mt-4 px-8 py-4 bg-gradient-to-r from-pink-500 via-pink-400 to-pink-500 text-white rounded-full font-semibold hover:scale-105 transition-transform shadow-lg shadow-pink-500/50"
                     >
                       Open Another Pack
                     </button>

@@ -79,13 +79,17 @@ const Roster = ({ likedCards, onRemoveCard }) => {
   const getRarityColor = (rarity) => {
     switch (rarity) {
       case 'legendary':
-        return 'from-yellow-500 via-orange-500 to-red-500';
+        return 'from-yellow-400 via-yellow-500 to-yellow-600';
       case 'epic':
-        return 'from-purple-500 via-pink-500 to-purple-500';
+        return 'from-purple-500 via-purple-600 to-purple-700';
       case 'rare':
-        return 'from-blue-500 via-cyan-500 to-blue-500';
+        return 'from-blue-500 via-blue-600 to-blue-700';
+      case 'uncommon':
+        return 'from-gray-500 via-gray-600 to-gray-700';
+      case 'common':
+        return 'from-green-500 via-green-600 to-green-700';
       default:
-        return 'from-gray-500 via-gray-400 to-gray-500';
+        return 'from-gray-500 via-gray-600 to-gray-700';
     }
   };
 
@@ -134,7 +138,7 @@ const Roster = ({ likedCards, onRemoveCard }) => {
       </div>
 
       {/* Content */}
-      <div className="relative z-20 min-h-full px-6 py-12">
+      <div className="relative z-20 min-h-full px-6 pt-24 pb-12">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
             <h1 className="text-5xl md:text-7xl font-bold mb-4 text-white drop-shadow-2xl">

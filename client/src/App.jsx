@@ -357,7 +357,7 @@ export default function App() {
             onClick={() => setActiveTab('pack')}
             className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 ${
               activeTab === 'pack'
-                ? 'bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 text-white shadow-lg shadow-yellow-500/50'
+                ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-lg shadow-pink-500/50'
                 : 'bg-white/10 text-white/70 hover:bg-white/20'
             }`}
           >
@@ -367,7 +367,7 @@ export default function App() {
             onClick={() => setActiveTab('roster')}
             className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 relative ${
               activeTab === 'roster'
-                ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg shadow-green-500/50'
+                ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-lg shadow-pink-500/50'
                 : 'bg-white/10 text-white/70 hover:bg-white/20'
             }`}
           >
