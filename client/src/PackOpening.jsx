@@ -148,6 +148,40 @@ const SwipeableCard = ({ card, onSwipe, isRevealed, isActive, onFlip, attractive
   const prevRevealedRef = useRef(isRevealed);
   const prevActiveRef = useRef(isActive);
 
+  // Generate gradient based on score (0-100)
+  const getScoreGradient = (score) => {
+    // Default to 50 if no score
+    const normalizedScore = typeof score === 'number' && !isNaN(score) ? Math.max(0, Math.min(100, score)) : 50;
+    const ratio = normalizedScore / 100;
+    
+    // Create gradient from purple (low) -> pink (mid) -> gold (high)
+    // Using HSL for smooth color transitions
+    if (ratio < 0.5) {
+      // Low to mid: purple to pink
+      const localRatio = ratio * 2; // 0 to 1
+      const hue = 270 - (localRatio * 60); // 270 (purple) to 210 (pink)
+      const saturation = 60 + (localRatio * 20); // 60% to 80%
+      const lightness = 40 + (localRatio * 10); // 40% to 50%
+      return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+    } else {
+      // Mid to high: pink to gold
+      const localRatio = (ratio - 0.5) * 2; // 0 to 1
+      const hue = 210 - (localRatio * 90); // 210 (pink) to 120 (gold/yellow-green)
+      const saturation = 80 - (localRatio * 20); // 80% to 60%
+      const lightness = 50 + (localRatio * 20); // 50% to 70%
+      return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+    }
+  };
+
+  const getScoreGradientStyle = (score) => {
+    const color1 = getScoreGradient(score);
+    const color2 = getScoreGradient(Math.min(100, score + 10));
+    const color3 = getScoreGradient(Math.min(100, score + 20));
+    return {
+      background: `linear-gradient(135deg, ${color1} 0%, ${color2} 50%, ${color3} 100%)`
+    };
+  };
+
   // Reset flip state when card becomes revealed or when it becomes active
   useEffect(() => {
     // Reset when card becomes revealed - show front
@@ -364,24 +398,20 @@ const SwipeableCard = ({ card, onSwipe, isRevealed, isActive, onFlip, attractive
   // Show back if: card is not revealed OR (revealed AND user flipped it to show back)
   const effectiveFlip = !isRevealed || (isRevealed && isFlipped);
 
-  const scoreLabel = (() => {
-    if (attractivenessScore === undefined) {
-      return 'Scoring...';
-    }
-    if (attractivenessScore === null) {
-      return 'N/A';
+  const score = (() => {
+    if (attractivenessScore === undefined || attractivenessScore === null) {
+      return 50;
     }
     if (typeof attractivenessScore === 'number' && !Number.isNaN(attractivenessScore)) {
-      return attractivenessScore.toFixed(2);
+      return attractivenessScore;
     }
     if (typeof attractivenessScore === 'string' && attractivenessScore.trim().length > 0) {
       const parsed = Number(attractivenessScore);
       if (!Number.isNaN(parsed)) {
-        return parsed.toFixed(2);
+        return parsed;
       }
-      return attractivenessScore;
     }
-    return null;
+    return 50;
   })();
 
   return (
@@ -435,13 +465,6 @@ const SwipeableCard = ({ card, onSwipe, isRevealed, isActive, onFlip, attractive
         }
       }}
     >
-      {scoreLabel && (
-        <div className="absolute top-4 right-4 z-50">
-          <span className="px-3 py-1 rounded-full bg-black/80 text-white text-sm font-semibold border border-white/20">
-            {scoreLabel}
-          </span>
-        </div>
-      )}
       {/* Swipe indicators - only show for revealed cards */}
       {isDragging && isRevealed && (
         <>
@@ -470,14 +493,15 @@ const SwipeableCard = ({ card, onSwipe, isRevealed, isActive, onFlip, attractive
         style={{ 
           opacity: glowOpacity,
           transform: `scale(${glowScale}) rotate(${rotationGlow}deg)`,
-          background: `conic-gradient(from ${rotationGlow}deg, #ec4899, #a855f7, #3b82f6, #ec4899)`
+          ...getScoreGradientStyle(score)
         }}
       />
       <div 
-        className="absolute -inset-4 rounded-3xl bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 blur-2xl"
+        className="absolute -inset-4 rounded-3xl blur-2xl"
         style={{ 
           opacity: glowOpacity * 0.7,
-          transform: `scale(${glowScale * 0.9}) rotate(${-rotationGlow}deg)`
+          transform: `scale(${glowScale * 0.9}) rotate(${-rotationGlow}deg)`,
+          ...getScoreGradientStyle(score)
         }}
       />
       
@@ -528,18 +552,18 @@ const SwipeableCard = ({ card, onSwipe, isRevealed, isActive, onFlip, attractive
           style={{ backfaceVisibility: 'hidden' }}
         >
           {/* Card content */}
-          <div className="relative h-full flex flex-col bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+          <div className="relative h-full flex flex-col" style={getScoreGradientStyle(score)}>
             {/* Profile Image */}
             <div className="h-[280px] relative overflow-hidden flex-shrink-0">
               {/* Gradient background */}
-              <div className="absolute inset-0 bg-gradient-to-br from-pink-600/30 via-purple-600/30 to-blue-600/30" />
+              <div className="absolute inset-0 opacity-30" style={getScoreGradientStyle(score)} />
               
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="relative">
                   {/* Outer animated glow rings */}
-                  <div className="absolute inset-0 -m-6 rounded-full bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 blur-2xl opacity-50 animate-spin-slow animate-pulse-scale" />
-                  <div className="absolute inset-0 -m-4 rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 blur-xl opacity-60 animate-spin-reverse animate-pulse-scale-delayed" />
-                  <div className="absolute inset-0 -m-2 rounded-full bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 blur-lg opacity-40 animate-spin-slow" />
+                  <div className="absolute inset-0 -m-6 rounded-full blur-2xl opacity-50 animate-spin-slow animate-pulse-scale" style={getScoreGradientStyle(score)} />
+                  <div className="absolute inset-0 -m-4 rounded-full blur-xl opacity-60 animate-spin-reverse animate-pulse-scale-delayed" style={getScoreGradientStyle(score)} />
+                  <div className="absolute inset-0 -m-2 rounded-full blur-lg opacity-40 animate-spin-slow" style={getScoreGradientStyle(score)} />
                   
                   {/* Animated rotating border ring */}
                   <div className="absolute inset-0 -m-1 rounded-full animate-rotate-border" style={{
@@ -572,7 +596,7 @@ const SwipeableCard = ({ card, onSwipe, isRevealed, isActive, onFlip, attractive
                         }}
                       />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-pink-500 via-purple-500 to-blue-500 flex items-center justify-center">
+                      <div className="w-full h-full flex items-center justify-center" style={getScoreGradientStyle(score)}>
                         <span className="text-white text-7xl font-bold">
                           {card.name.split(' ').map((n) => n[0]).join('')}
                         </span>
@@ -581,7 +605,7 @@ const SwipeableCard = ({ card, onSwipe, isRevealed, isActive, onFlip, attractive
                   </div>
                   
                   {/* Inner glow pulse */}
-                  <div className="absolute inset-0 -m-3 rounded-full bg-gradient-to-r from-pink-400/50 via-purple-400/50 to-blue-400/50 blur-md animate-pulse-glow-inner" />
+                  <div className="absolute inset-0 -m-3 rounded-full blur-md animate-pulse-glow-inner opacity-50" style={getScoreGradientStyle(score)} />
                 </div>
               </div>
               
@@ -959,7 +983,13 @@ const PackOpening = ({
     if (direction === 'right') {
       // Like - add to roster
       if (onCardLiked && typeof onCardLiked === 'function') {
-        onCardLiked(currentCard);
+        // Include the attractiveness score with the card
+        const cardWithScore = {
+          ...currentCard,
+          score: attractivenessScores[currentCard.id],
+          attractivenessScore: attractivenessScores[currentCard.id]
+        };
+        onCardLiked(cardWithScore);
       } else {
         console.log('  ⚠️  onCardLiked callback not provided, skipping like action');
       }

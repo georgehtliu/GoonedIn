@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: goonedin-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - PHANTOMBUSTER_API_KEY=${PHANTOMBUSTER_API_KEY}
+      - PHANTOMBUSTER_SEARCH_AGENT_ID=${PHANTOMBUSTER_SEARCH_AGENT_ID}
+      - PHANTOMBUSTER_SESSION_COOKIE=${PHANTOMBUSTER_SESSION_COOKIE}
+      - PHANTOMBUSTER_CATEGORY=${PHANTOMBUSTER_CATEGORY:-People}
+      - PHANTOMBUSTER_SEARCH_TYPE=${PHANTOMBUSTER_SEARCH_TYPE:-linkedInSearchUrl}
+      - PHANTOMBUSTER_CONNECTION_DEGREES=${PHANTOMBUSTER_CONNECTION_DEGREES}
+      - PHANTOMBUSTER_LINES_PER_LAUNCH=${PHANTOMBUSTER_LINES_PER_LAUNCH:-10}
+      - PHANTOMBUSTER_RESULTS_PER_LAUNCH=${PHANTOMBUSTER_RESULTS_PER_LAUNCH:-10}
+      - PHANTOMBUSTER_RESULTS_PER_SEARCH=${PHANTOMBUSTER_RESULTS_PER_SEARCH:-10}
+      - PHANTOMBUSTER_ENRICH=${PHANTOMBUSTER_ENRICH:-true}
+      - PHANTOMBUSTER_LINKEDIN_SEARCH_URL=${PHANTOMBUSTER_LINKEDIN_SEARCH_URL}
+      - PHANTOMBUSTER_IDENTITY_ID=${PHANTOMBUSTER_IDENTITY_ID}
+      - PHANTOMBUSTER_USER_AGENT=${PHANTOMBUSTER_USER_AGENT}
+      - MONGODB_URI=${MONGODB_URI}
+      - MONGODB_DB=${MONGODB_DB:-linkedin_baddie_finder}
+      - MONGODB_COLLECTION=${MONGODB_COLLECTION:-search_results}
+    volumes:
+      - ./server:/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000}
+    container_name: goonedin-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+

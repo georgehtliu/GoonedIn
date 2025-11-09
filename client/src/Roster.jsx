@@ -83,21 +83,38 @@ const Roster = ({ likedCards, onRemoveCard }) => {
     detectRetina: true
   };
 
-  const getRarityColor = (rarity) => {
-    switch (rarity) {
-      case 'legendary':
-        return 'from-yellow-400 via-yellow-500 to-yellow-600';
-      case 'epic':
-        return 'from-purple-500 via-purple-600 to-purple-700';
-      case 'rare':
-        return 'from-blue-500 via-blue-600 to-blue-700';
-      case 'uncommon':
-        return 'from-gray-500 via-gray-600 to-gray-700';
-      case 'common':
-        return 'from-green-500 via-green-600 to-green-700';
-      default:
-        return 'from-gray-500 via-gray-600 to-gray-700';
+  // Generate gradient based on score (0-100)
+  const getScoreGradient = (score) => {
+    // Default to 50 if no score
+    const normalizedScore = typeof score === 'number' && !isNaN(score) ? Math.max(0, Math.min(100, score)) : 50;
+    const ratio = normalizedScore / 100;
+    
+    // Create gradient from purple (low) -> pink (mid) -> gold (high)
+    // Using HSL for smooth color transitions
+    if (ratio < 0.5) {
+      // Low to mid: purple to pink
+      const localRatio = ratio * 2; // 0 to 1
+      const hue = 270 - (localRatio * 60); // 270 (purple) to 210 (pink)
+      const saturation = 60 + (localRatio * 20); // 60% to 80%
+      const lightness = 40 + (localRatio * 10); // 40% to 50%
+      return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+    } else {
+      // Mid to high: pink to gold
+      const localRatio = (ratio - 0.5) * 2; // 0 to 1
+      const hue = 210 - (localRatio * 90); // 210 (pink) to 120 (gold/yellow-green)
+      const saturation = 80 - (localRatio * 20); // 80% to 60%
+      const lightness = 50 + (localRatio * 20); // 50% to 70%
+      return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
     }
+  };
+
+  const getScoreGradientStyle = (score) => {
+    const color1 = getScoreGradient(score);
+    const color2 = getScoreGradient(Math.min(100, score + 10));
+    const color3 = getScoreGradient(Math.min(100, score + 20));
+    return {
+      background: `linear-gradient(135deg, ${color1} 0%, ${color2} 50%, ${color3} 100%)`
+    };
   };
 
   const handleCardClick = (cardId) => {
@@ -265,13 +282,13 @@ const Roster = ({ likedCards, onRemoveCard }) => {
                     <div
                       key={card.id}
                       onClick={() => handleCardClick(card.id)}
-                      className="relative w-full h-[600px] rounded-3xl overflow-hidden shadow-2xl border-4 border-white/20 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 cursor-pointer transition-all duration-300 ease-out hover:scale-105"
+                      className="relative w-full h-[600px] rounded-3xl overflow-hidden shadow-2xl border-4 border-white/20 cursor-pointer transition-all duration-300 ease-out hover:scale-105"
+                      style={getScoreGradientStyle(card.score || card.attractivenessScore || 50)}
                     >
                     {/* Glow effect */}
                     <div
-                      className={`absolute -inset-4 rounded-3xl bg-gradient-to-r ${getRarityColor(
-                        card.rarity
-                      )} blur-2xl opacity-60 animate-pulse-glow`}
+                      className="absolute -inset-4 rounded-3xl blur-2xl opacity-60 animate-pulse-glow"
+                      style={getScoreGradientStyle(card.score || card.attractivenessScore || 50)}
                     />
 
                     {/* Close button for expanded card */}
@@ -287,14 +304,6 @@ const Roster = ({ likedCards, onRemoveCard }) => {
                       </button>
                     )}
 
-                    {/* Rarity indicator */}
-                    <div
-                      className={`absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-bold text-white bg-gradient-to-r ${getRarityColor(
-                        card.rarity
-                      )} shadow-lg z-20`}
-                    >
-                      {card.rarity.toUpperCase()}
-                    </div>
 
                     {/* Profile Image */}
                     <div className={`relative overflow-hidden transition-all duration-500 ${isExpanded ? 'h-[350px]' : 'h-[280px]'}`}>
@@ -303,14 +312,12 @@ const Roster = ({ likedCards, onRemoveCard }) => {
                         <div className="relative">
                           {/* Glow rings */}
                           <div
-                            className={`absolute inset-0 -m-6 rounded-full bg-gradient-to-r ${getRarityColor(
-                              card.rarity
-                            )} blur-2xl opacity-50 animate-spin-slow animate-pulse-scale`}
+                            className="absolute inset-0 -m-6 rounded-full blur-2xl opacity-50 animate-spin-slow animate-pulse-scale"
+                            style={getScoreGradientStyle(card.score || card.attractivenessScore || 50)}
                           />
                           <div
-                            className={`absolute inset-0 -m-4 rounded-full bg-gradient-to-r ${getRarityColor(
-                              card.rarity
-                            )} blur-xl opacity-60 animate-spin-reverse animate-pulse-scale-delayed`}
+                            className="absolute inset-0 -m-4 rounded-full blur-xl opacity-60 animate-spin-reverse animate-pulse-scale-delayed"
+                            style={getScoreGradientStyle(card.score || card.attractivenessScore || 50)}
                           />
 
                           {/* Avatar */}
@@ -325,11 +332,11 @@ const Roster = ({ likedCards, onRemoveCard }) => {
                               />
                             ) : (
                               <div
-                                className={`w-full h-full bg-gradient-to-br ${getRarityColor(
-                                  card.rarity
-                                )} flex items-center justify-center text-white font-bold transition-all duration-500 ${
-                                  isExpanded ? 'text-7xl' : 'text-5xl'
-                                }`}
+                                className="w-full h-full flex items-center justify-center text-white font-bold transition-all duration-500"
+                                style={{
+                                  ...getScoreGradientStyle(card.score || card.attractivenessScore || 50),
+                                  fontSize: isExpanded ? '4.5rem' : '3rem'
+                                }}
                               >
                                 {card.name
                                   .split(' ')
@@ -453,13 +460,13 @@ const Roster = ({ likedCards, onRemoveCard }) => {
                     
                     {/* Expanded Card */}
                     <div
-                      className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 w-[90vw] max-w-2xl h-[90vh] max-h-[800px] rounded-3xl overflow-hidden shadow-2xl border-4 border-white/20 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 transition-all duration-500 ease-out"
+                      className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 w-[90vw] max-w-2xl h-[90vh] max-h-[800px] rounded-3xl overflow-hidden shadow-2xl border-4 border-white/20 transition-all duration-500 ease-out"
+                      style={getScoreGradientStyle(expandedCard.score || expandedCard.attractivenessScore || 50)}
                     >
                       {/* Glow effect */}
                       <div
-                        className={`absolute -inset-4 rounded-3xl bg-gradient-to-r ${getRarityColor(
-                          expandedCard.rarity
-                        )} blur-2xl opacity-60 animate-pulse-glow`}
+                        className="absolute -inset-4 rounded-3xl blur-2xl opacity-60 animate-pulse-glow"
+                        style={getScoreGradientStyle(expandedCard.score || expandedCard.attractivenessScore || 50)}
                       />
 
                       {/* Close button */}
@@ -473,15 +480,6 @@ const Roster = ({ likedCards, onRemoveCard }) => {
                         ✕
                       </button>
 
-                      {/* Rarity indicator */}
-                      <div
-                        className={`absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-bold text-white bg-gradient-to-r ${getRarityColor(
-                          expandedCard.rarity
-                        )} shadow-lg z-20`}
-                      >
-                        {expandedCard.rarity.toUpperCase()}
-                      </div>
-
                       {/* Profile Image */}
                       <div className="relative h-[350px] overflow-hidden">
                         <div className="absolute inset-0 bg-gradient-to-br from-pink-600/30 via-purple-600/30 to-blue-600/30" />
@@ -489,14 +487,12 @@ const Roster = ({ likedCards, onRemoveCard }) => {
                           <div className="relative">
                             {/* Glow rings */}
                             <div
-                              className={`absolute inset-0 -m-6 rounded-full bg-gradient-to-r ${getRarityColor(
-                                expandedCard.rarity
-                              )} blur-2xl opacity-50 animate-spin-slow animate-pulse-scale`}
+                              className="absolute inset-0 -m-6 rounded-full blur-2xl opacity-50 animate-spin-slow animate-pulse-scale"
+                              style={getScoreGradientStyle(expandedCard.score || expandedCard.attractivenessScore || 50)}
                             />
                             <div
-                              className={`absolute inset-0 -m-4 rounded-full bg-gradient-to-r ${getRarityColor(
-                                expandedCard.rarity
-                              )} blur-xl opacity-60 animate-spin-reverse animate-pulse-scale-delayed`}
+                              className="absolute inset-0 -m-4 rounded-full blur-xl opacity-60 animate-spin-reverse animate-pulse-scale-delayed"
+                              style={getScoreGradientStyle(expandedCard.score || expandedCard.attractivenessScore || 50)}
                             />
 
                             {/* Avatar */}
@@ -509,9 +505,8 @@ const Roster = ({ likedCards, onRemoveCard }) => {
                                 />
                               ) : (
                                 <div
-                                  className={`w-full h-full bg-gradient-to-br ${getRarityColor(
-                                    expandedCard.rarity
-                                  )} flex items-center justify-center text-white text-7xl font-bold`}
+                                  className="w-full h-full flex items-center justify-center text-white text-7xl font-bold"
+                                  style={getScoreGradientStyle(expandedCard.score || expandedCard.attractivenessScore || 50)}
                                 >
                                   {expandedCard.name
                                     .split(' ')
