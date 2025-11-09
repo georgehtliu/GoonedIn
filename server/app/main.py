@@ -169,7 +169,7 @@ class PhantomProfile(BaseModel):
 
 class PhantomSearchRequest(BaseModel):
   query: str = Field(default="Waterloo girls", min_length=1, max_length=200)
-  limit: int = Field(default=5, ge=1, le=1000)
+  limit: int = Field(default=5, ge=1, le=10)
   search_url: str | None = None
   category: str | None = None
   search_type: str | None = None
@@ -186,10 +186,10 @@ def _build_search_argument(request: PhantomSearchRequest, session_cookie: str) -
   connection_degrees_env = os.getenv("PHANTOMBUSTER_CONNECTION_DEGREES", "")
   connection_degrees = request.connection_degrees or [d.strip() for d in connection_degrees_env.split(",") if d.strip()]
   lines_per_launch = request.lines_per_launch or int(os.getenv("PHANTOMBUSTER_LINES_PER_LAUNCH", "10"))
-  env_results_per_launch = int(os.getenv("PHANTOMBUSTER_RESULTS_PER_LAUNCH", str(request.limit)))
-  env_results_per_search = int(os.getenv("PHANTOMBUSTER_RESULTS_PER_SEARCH", str(request.limit)))
-  effective_results_per_launch = max(request.limit, request.results_per_launch or env_results_per_launch)
-  effective_results_per_search = max(request.limit, request.results_per_search or env_results_per_search)
+  env_results_per_launch = int(os.getenv("PHANTOMBUSTER_RESULTS_PER_LAUNCH", "10"))
+  env_results_per_search = int(os.getenv("PHANTOMBUSTER_RESULTS_PER_SEARCH", "10"))
+  effective_results_per_launch = request.results_per_launch or env_results_per_launch
+  effective_results_per_search = request.results_per_search or env_results_per_search
   enrich_env = os.getenv("PHANTOMBUSTER_ENRICH", "true").lower() == "true"
   enrich = request.enrich if request.enrich is not None else enrich_env
   search_url = request.search_url or os.getenv("PHANTOMBUSTER_LINKEDIN_SEARCH_URL")
@@ -361,6 +361,9 @@ async def phantombuster_linkedin_search(payload: PhantomSearchRequest) -> Phanto
     "argument": _build_search_argument(payload, session_cookie)
   }
 
+  # Debug: Log what we're sending to PhantomBuster
+  logger.info(f"PhantomBuster launch_body argument: {launch_body['argument']}")
+
   try:
     async with httpx.AsyncClient(timeout=30.0) as client:
       launch_resp = await client.post(f"{PHANTOMBUSTER_BASE_URL}/agents/launch", headers=headers, json=launch_body)
@@ -451,6 +454,88 @@ async def phantombuster_linkedin_search(payload: PhantomSearchRequest) -> Phanto
   except asyncio.TimeoutError as exc:
     logger.error("Timed out waiting for PhantomBuster container: %s", exc)
     raise HTTPException(status_code=504, detail="Timed out waiting for PhantomBuster results.") from exc
+
+
+class FetchContainerRequest(BaseModel):
+  container_id: str = Field(min_length=1, max_length=100)
+  limit: int = Field(default=10, ge=1, le=1000)
+
+
+@app.post("/phantombuster/fetch-results", response_model=PhantomSearchResponse)
+async def fetch_phantombuster_results(payload: FetchContainerRequest) -> PhantomSearchResponse:
+  """Fetch results from a previously launched PhantomBuster container by its ID."""
+  api_key = os.getenv("PHANTOMBUSTER_API_KEY")
+
+  if not api_key:
+    raise HTTPException(status_code=500, detail="PhantomBuster API key is not configured (missing PHANTOMBUSTER_API_KEY).")
+
+  headers = {
+    "X-Phantombuster-Key-1": api_key,
+    "Content-Type": "application/json"
+  }
+
+  try:
+    async with httpx.AsyncClient(timeout=30.0) as client:
+      # Fetch container status
+      container_resp = await client.get(
+        f"{PHANTOMBUSTER_BASE_URL}/containers/fetch",
+        headers=headers,
+        params={"id": payload.container_id}
+      )
+      container_resp.raise_for_status()
+      container_data = container_resp.json()
+      container = container_data.get("container") or container_data
+      status = container.get("status")
+
+      logger.info(f"Fetched PhantomBuster container {payload.container_id}, status: {status}")
+
+      # Extract output URL
+      output = container.get("output", {}) if isinstance(container, dict) else {}
+      json_url = None
+      if isinstance(output, dict):
+        json_candidate = output.get("json") or output.get("jsonUrl") or output.get("resultObjectUrl")
+        if isinstance(json_candidate, list):
+          json_candidate = json_candidate[0] if json_candidate else None
+        json_url = json_candidate
+
+      # Fetch and parse profiles
+      profiles: list[PhantomProfile] = []
+      if json_url:
+        try:
+          result_resp = await client.get(json_url)
+          result_resp.raise_for_status()
+          result_data = result_resp.json()
+          if isinstance(result_data, list):
+            for entry in result_data:
+              if isinstance(entry, dict):
+                profiles.append(_extract_profile_entry(entry))
+                if len(profiles) >= payload.limit:
+                  break
+        except httpx.HTTPError as exc:
+          logger.warning("Failed to download PhantomBuster JSON output: %s", exc)
+      elif isinstance(output, dict) and output.get("resultObject"):
+        result_object = output["resultObject"]
+        if isinstance(result_object, list):
+          for entry in result_object:
+            if isinstance(entry, dict):
+              profiles.append(_extract_profile_entry(entry))
+              if len(profiles) >= payload.limit:
+                break
+
+      return PhantomSearchResponse(
+        query="",  # We don't know the original query
+        limit=payload.limit,
+        profiles=profiles,
+        container_id=str(payload.container_id),
+        output_url=json_url
+      )
+
+  except httpx.HTTPStatusError as exc:
+    logger.error("PhantomBuster API error: %s", exc.response.text)
+    raise HTTPException(status_code=exc.response.status_code, detail=f"PhantomBuster API error: {exc.response.text}") from exc
+  except httpx.HTTPError as exc:
+    logger.error("PhantomBuster network error: %s", exc)
+    raise HTTPException(status_code=502, detail=f"PhantomBuster network error: {exc}") from exc
 
 
 # AI Feature Models
