@@ -4,6 +4,7 @@ import { loadSlim } from 'tsparticles-slim';
 import { FaLinkedin } from 'react-icons/fa';
 import PackOpening from './PackOpening';
 import Roster from './Roster';
+import MessageComposer from './MessageComposer';
 
 // Custom Dropdown Component
 const CustomDropdown = ({ value, options, onChange, placeholder = 'Select an option...' }) => {
@@ -920,6 +921,16 @@ export default function App() {
               </span>
             )}
           </button>
+          <button
+            onClick={() => setActiveTab('messages')}
+            className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 ${
+              activeTab === 'messages'
+                ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-lg shadow-pink-500/50'
+                : 'bg-white/10 text-white/70 hover:bg-white/20'
+            }`}
+          >
+            💬 Messages
+          </button>
         </div>
       </div>
 
@@ -928,6 +939,7 @@ export default function App() {
         {activeTab === 'home' && <DatingLandingPage />}
         {activeTab === 'pack' && <PackOpening onCardLiked={handleCardLiked} />}
         {activeTab === 'roster' && <Roster likedCards={likedCards} onRemoveCard={handleCardRemoved} />}
+        {activeTab === 'messages' && <MessageComposer rosterCards={likedCards} />}
       </div>
     </div>
   );

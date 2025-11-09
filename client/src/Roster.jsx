@@ -6,6 +6,13 @@ const Roster = ({ likedCards, onRemoveCard }) => {
   const [expandedCardId, setExpandedCardId] = useState(null);
   const [showConfirmRemove, setShowConfirmRemove] = useState(false);
   const [cardToRemove, setCardToRemove] = useState(null);
+  const [aiOverview, setAiOverview] = useState({});
+  const [satiricalInsights, setSatiricalInsights] = useState({});
+  const [socialProfiles, setSocialProfiles] = useState({});
+  const [loadingAI, setLoadingAI] = useState(false);
+  const [loadingSatirical, setLoadingSatirical] = useState(false);
+  const [loadingSocials, setLoadingSocials] = useState(false);
+  const [showSatirical, setShowSatirical] = useState({});
   
   const particlesInit = useCallback(async (engine) => {
     await loadSlim(engine);
@@ -124,6 +131,95 @@ const Roster = ({ likedCards, onRemoveCard }) => {
   const cancelRemove = () => {
     setShowConfirmRemove(false);
     setCardToRemove(null);
+  };
+
+  const fetchAIOverview = async (card) => {
+    if (aiOverview[card.id]) return; // Already fetched
+
+    setLoadingAI(true);
+    try {
+      const response = await fetch('http://localhost:8000/api/ai-overview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile: {
+            name: card.name,
+            major: card.major,
+            company: card.company,
+            bio: card.bio,
+            location: card.location,
+            interests: card.interests || [],
+            experience: card.experience,
+            age: card.age
+          }
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAiOverview(prev => ({ ...prev, [card.id]: data }));
+      }
+    } catch (err) {
+      console.error('Failed to fetch AI overview:', err);
+    } finally {
+      setLoadingAI(false);
+    }
+  };
+
+  const fetchSatiricalInsights = async (card) => {
+    if (satiricalInsights[card.id]) return; // Already fetched
+
+    setLoadingSatirical(true);
+    try {
+      const response = await fetch('http://localhost:8000/api/satirical-insights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile: {
+            name: card.name,
+            major: card.major,
+            company: card.company,
+            bio: card.bio,
+            interests: card.interests || []
+          }
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSatiricalInsights(prev => ({ ...prev, [card.id]: data }));
+      }
+    } catch (err) {
+      console.error('Failed to fetch satirical insights:', err);
+    } finally {
+      setLoadingSatirical(false);
+    }
+  };
+
+  const fetchSocialProfiles = async (card) => {
+    if (socialProfiles[card.id]) return; // Already fetched
+
+    setLoadingSocials(true);
+    try {
+      const response = await fetch('http://localhost:8000/api/find-socials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: card.name,
+          company: card.company,
+          location: card.location
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSocialProfiles(prev => ({ ...prev, [card.id]: data }));
+      }
+    } catch (err) {
+      console.error('Failed to fetch social profiles:', err);
+    } finally {
+      setLoadingSocials(false);
+    }
   };
 
   return (
@@ -478,12 +574,77 @@ const Roster = ({ likedCards, onRemoveCard }) => {
                           <div className="text-white text-base font-bold">{expandedCard.experience}</div>
                         </div>
 
+                        {/* AI Overview Section */}
+                        <div className="pt-4 mt-4 border-t-2 border-purple-500/30">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              fetchAIOverview(expandedCard);
+                            }}
+                            disabled={loadingAI}
+                            className="w-full mb-3 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:from-purple-600 hover:to-pink-600 transition-all duration-200 hover:scale-105 shadow-lg disabled:opacity-50"
+                          >
+                            {loadingAI ? '🤖 Generating AI Insights...' : '✨ Get AI Overview'}
+                          </button>
+
+                          {aiOverview[expandedCard.id] && (
+                            <div className="space-y-3 bg-purple-900/20 p-4 rounded-xl border border-purple-500/30">
+                              <div>
+                                <h4 className="text-yellow-400 font-bold mb-1">Summary</h4>
+                                <p className="text-white/90 text-sm">{aiOverview[expandedCard.id].summary}</p>
+                              </div>
+                              <div>
+                                <h4 className="text-yellow-400 font-bold mb-1">Personality Insights</h4>
+                                <p className="text-white/90 text-sm">{aiOverview[expandedCard.id].personality_insights}</p>
+                              </div>
+                              <div>
+                                <h4 className="text-yellow-400 font-bold mb-1">Compatibility</h4>
+                                <p className="text-white/90 text-sm">{aiOverview[expandedCard.id].compatibility_notes}</p>
+                              </div>
+                              <div>
+                                <h4 className="text-yellow-400 font-bold mb-1">Conversation Starters</h4>
+                                <ul className="space-y-1">
+                                  {aiOverview[expandedCard.id].conversation_starters.map((starter, idx) => (
+                                    <li key={idx} className="text-white/90 text-sm">💬 {starter}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Satirical Insights Toggle */}
+                          <div className="mt-3">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!satiricalInsights[expandedCard.id]) {
+                                  fetchSatiricalInsights(expandedCard);
+                                }
+                                setShowSatirical(prev => ({ ...prev, [expandedCard.id]: !prev[expandedCard.id] }));
+                              }}
+                              disabled={loadingSatirical}
+                              className="w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-semibold hover:from-orange-600 hover:to-red-600 transition-all duration-200 hover:scale-105 shadow-lg disabled:opacity-50"
+                            >
+                              {loadingSatirical ? '😄 Generating Roasts...' : showSatirical[expandedCard.id] ? '😏 Hide Satirical Insights' : '😂 Show Satirical Insights'}
+                            </button>
+
+                            {showSatirical[expandedCard.id] && satiricalInsights[expandedCard.id] && (
+                              <div className="mt-3 space-y-2 bg-orange-900/20 p-4 rounded-xl border border-orange-500/30">
+                                <h4 className="text-orange-400 font-bold mb-2">Probably...</h4>
+                                {satiricalInsights[expandedCard.id].insights.map((insight, idx) => (
+                                  <p key={idx} className="text-white/90 text-sm italic">• {insight}</p>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
                         {/* Email and LinkedIn */}
                         {expandedCard.email && expandedCard.linkedin && (
                           <div className="pt-4 mt-4 border-t-2 border-white/30 space-y-4">
                             <div className="text-center">
                               <div className="text-white text-lg font-bold mb-3">Contact Information</div>
-                              
+
                               {/* Email */}
                               <div className="mb-3">
                                 <a
@@ -526,6 +687,49 @@ const Roster = ({ likedCards, onRemoveCard }) => {
                             </div>
                           </div>
                         )}
+
+                        {/* Social Profiles - "More ways to reach" */}
+                        <div className="pt-4 mt-4 border-t-2 border-cyan-500/30">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              fetchSocialProfiles(expandedCard);
+                            }}
+                            disabled={loadingSocials}
+                            className="w-full mb-3 px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-xl font-semibold hover:from-cyan-600 hover:to-blue-600 transition-all duration-200 hover:scale-105 shadow-lg disabled:opacity-50"
+                          >
+                            {loadingSocials ? '🔍 Searching...' : `🌐 More ways to reach ${expandedCard.name.split(' ')[0]}`}
+                          </button>
+
+                          {socialProfiles[expandedCard.id] && socialProfiles[expandedCard.id].profiles.length > 0 && (
+                            <div className="space-y-2 bg-cyan-900/20 p-4 rounded-xl border border-cyan-500/30">
+                              <h4 className="text-cyan-400 font-bold mb-2">Potential Social Profiles</h4>
+                              <p className="text-white/70 text-xs mb-2">Note: These are educated guesses based on name patterns</p>
+                              {socialProfiles[expandedCard.id].profiles.map((profile, idx) => (
+                                <a
+                                  key={idx}
+                                  href={profile.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="block p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-all"
+                                >
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-white font-semibold">{profile.platform}</span>
+                                    <span className={`text-xs px-2 py-1 rounded ${
+                                      profile.confidence === 'high' ? 'bg-green-500/30 text-green-300' :
+                                      profile.confidence === 'medium' ? 'bg-yellow-500/30 text-yellow-300' :
+                                      'bg-gray-500/30 text-gray-300'
+                                    }`}>
+                                      {profile.confidence} confidence
+                                    </span>
+                                  </div>
+                                  <div className="text-white/60 text-sm mt-1 truncate">{profile.url}</div>
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </>

@@ -1,10 +1,10 @@
 import base64
 import uuid
+import os
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Literal
-import logging
-import asyncio
-import os
 from urllib.parse import quote_plus
 
 import httpx
@@ -12,6 +12,11 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from gender_guesser import detector as gender_detector
+import google.generativeai as genai
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 HUGGINGFACE_ENDPOINT = "https://thwanx-beautyrate.hf.space/api/predict"
 DEFAULT_FN_INDEX = 0
@@ -21,6 +26,12 @@ logger = logging.getLogger(__name__)
 PHANTOMBUSTER_BASE_URL = "https://api.phantombuster.com/api/v2"
 PHANTOMBUSTER_MAX_WAIT_SECONDS = 180
 PHANTOMBUSTER_POLL_INTERVAL_SECONDS = 5
+# Configure Gemini API
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+else:
+    logger.warning("GEMINI_API_KEY not found in environment variables")
 
 
 def _extract_primary_score(raw: Any) -> Any:
@@ -440,4 +451,305 @@ async def phantombuster_linkedin_search(payload: PhantomSearchRequest) -> Phanto
   except asyncio.TimeoutError as exc:
     logger.error("Timed out waiting for PhantomBuster container: %s", exc)
     raise HTTPException(status_code=504, detail="Timed out waiting for PhantomBuster results.") from exc
+
+
+# AI Feature Models
+class ProfileData(BaseModel):
+  name: str
+  major: str | None = None
+  company: str | None = None
+  bio: str | None = None
+  location: str | None = None
+  interests: list[str] = []
+  experience: str | None = None
+  age: int | None = None
+
+
+class AIOverviewRequest(BaseModel):
+  profile: ProfileData
+
+
+class AIOverviewResponse(BaseModel):
+  summary: str
+  personality_insights: str
+  compatibility_notes: str
+  conversation_starters: list[str]
+
+
+class DraftMessageRequest(BaseModel):
+  recipient: ProfileData
+  tone: Literal["flirty", "polite", "direct", "professional", "casual", "witty"]
+  message_type: Literal["cold_dm", "warm_dm", "follow_up"]
+  context: str | None = None
+
+
+class DraftMessageResponse(BaseModel):
+  message: str
+  tone: str
+
+
+class SatiricalInsightRequest(BaseModel):
+  profile: ProfileData
+
+
+class SatiricalInsightResponse(BaseModel):
+  insights: list[str]
+
+
+class SocialProfile(BaseModel):
+  platform: str
+  url: str
+  confidence: Literal["high", "medium", "low"]
+
+
+class FindSocialsRequest(BaseModel):
+  name: str
+  company: str | None = None
+  location: str | None = None
+
+
+class FindSocialsResponse(BaseModel):
+  profiles: list[SocialProfile]
+
+
+# AI Endpoints
+@app.post("/api/ai-overview", response_model=AIOverviewResponse)
+async def get_ai_overview(request: AIOverviewRequest) -> AIOverviewResponse:
+  """Generate an AI-powered overview of a LinkedIn profile."""
+  if not GEMINI_API_KEY:
+    raise HTTPException(status_code=503, detail="AI service not configured")
+
+  profile = request.profile
+
+  prompt = f"""Analyze this LinkedIn profile for a dating/networking context:
+
+Name: {profile.name}
+Title/Major: {profile.major or 'Not specified'}
+Company: {profile.company or 'Not specified'}
+Bio: {profile.bio or 'Not specified'}
+Location: {profile.location or 'Not specified'}
+Interests: {', '.join(profile.interests) if profile.interests else 'Not specified'}
+Experience: {profile.experience or 'Not specified'}
+Age: {profile.age or 'Not specified'}
+
+Please provide:
+1. A compelling 2-3 sentence professional background summary
+2. Personality insights and what makes them interesting (2-3 sentences)
+3. Compatibility indicators for dating/networking (2-3 sentences)
+4. Exactly 3 creative conversation starters
+
+Format your response as:
+SUMMARY: [summary here]
+PERSONALITY: [personality insights here]
+COMPATIBILITY: [compatibility notes here]
+STARTERS:
+- [starter 1]
+- [starter 2]
+- [starter 3]
+
+Keep it engaging, dating-app appropriate, and positive."""
+
+  try:
+    model = genai.GenerativeModel('gemini-2.0-flash-exp')
+    response = model.generate_content(prompt)
+    text = response.text
+
+    # Parse response
+    lines = text.strip().split('\n')
+    summary = ""
+    personality = ""
+    compatibility = ""
+    starters = []
+
+    current_section = None
+    for line in lines:
+      line = line.strip()
+      if line.startswith("SUMMARY:"):
+        current_section = "summary"
+        summary = line.replace("SUMMARY:", "").strip()
+      elif line.startswith("PERSONALITY:"):
+        current_section = "personality"
+        personality = line.replace("PERSONALITY:", "").strip()
+      elif line.startswith("COMPATIBILITY:"):
+        current_section = "compatibility"
+        compatibility = line.replace("COMPATIBILITY:", "").strip()
+      elif line.startswith("STARTERS:"):
+        current_section = "starters"
+      elif line.startswith("-") and current_section == "starters":
+        starters.append(line.lstrip("- ").strip())
+      elif current_section and line:
+        if current_section == "summary":
+          summary += " " + line
+        elif current_section == "personality":
+          personality += " " + line
+        elif current_section == "compatibility":
+          compatibility += " " + line
+
+    return AIOverviewResponse(
+      summary=summary.strip(),
+      personality_insights=personality.strip(),
+      compatibility_notes=compatibility.strip(),
+      conversation_starters=starters[:3]
+    )
+
+  except Exception as exc:
+    logger.error(f"AI overview generation failed: {exc}")
+    raise HTTPException(status_code=500, detail=f"AI generation failed: {str(exc)}") from exc
+
+
+@app.post("/api/draft-message", response_model=DraftMessageResponse)
+async def draft_message(request: DraftMessageRequest) -> DraftMessageResponse:
+  """Generate an AI-drafted message for LinkedIn DMs."""
+  if not GEMINI_API_KEY:
+    raise HTTPException(status_code=503, detail="AI service not configured")
+
+  recipient = request.recipient
+
+  tone_instructions = {
+    "flirty": "Write in a playful, charming, and subtly flirty tone. Be confident but not aggressive.",
+    "polite": "Write in a respectful, professional, and courteous tone. Be warm and friendly.",
+    "direct": "Write in a straightforward, honest, and confident tone. Get to the point quickly.",
+    "professional": "Write in a business-appropriate, respectful, and formal tone.",
+    "casual": "Write in a friendly, relaxed, and approachable tone. Be conversational.",
+    "witty": "Write with clever humor, wordplay, and engaging wit. Be memorable and fun."
+  }
+
+  message_type_instructions = {
+    "cold_dm": "This is a first message to someone you haven't matched with or talked to before. Make it engaging and give them a reason to respond.",
+    "warm_dm": "This is a message to someone you've matched with or have mutual interest. Be more personal and reference shared interests.",
+    "follow_up": "This is a follow-up message to continue a conversation. Build on previous context."
+  }
+
+  context_part = f"\nAdditional context: {request.context}" if request.context else ""
+
+  prompt = f"""Draft a LinkedIn direct message with these parameters:
+
+RECIPIENT PROFILE:
+Name: {recipient.name}
+Title/Major: {recipient.major or 'Not specified'}
+Company: {recipient.company or 'Not specified'}
+Bio: {recipient.bio or 'Not specified'}
+Location: {recipient.location or 'Not specified'}
+Interests: {', '.join(recipient.interests) if recipient.interests else 'Not specified'}
+
+TONE: {request.tone.upper()}
+{tone_instructions[request.tone]}
+
+MESSAGE TYPE: {request.message_type.upper()}
+{message_type_instructions[request.message_type]}{context_part}
+
+Requirements:
+- Keep it under 150 words
+- Make it personalized based on their profile
+- Appropriate for LinkedIn networking with romantic interest
+- Include a clear call-to-action or question
+- Don't be creepy or overly forward
+- Sound natural and authentic
+
+Write ONLY the message, no explanations or meta-commentary."""
+
+  try:
+    model = genai.GenerativeModel('gemini-2.0-flash-exp')
+    response = model.generate_content(prompt)
+    message = response.text.strip()
+
+    # Clean up any markdown formatting or quotes
+    message = message.replace('**', '').replace('*', '').strip('"\'')
+
+    return DraftMessageResponse(
+      message=message,
+      tone=request.tone
+    )
+
+  except Exception as exc:
+    logger.error(f"Message drafting failed: {exc}")
+    raise HTTPException(status_code=500, detail=f"AI generation failed: {str(exc)}") from exc
+
+
+@app.post("/api/satirical-insights", response_model=SatiricalInsightResponse)
+async def get_satirical_insights(request: SatiricalInsightRequest) -> SatiricalInsightResponse:
+  """Generate funny, satirical 'probably...' observations about a profile."""
+  if not GEMINI_API_KEY:
+    raise HTTPException(status_code=503, detail="AI service not configured")
+
+  profile = request.profile
+
+  prompt = f"""Generate 5 funny, satirical "probably..." observations about this LinkedIn profile.
+Make them humorous but not mean-spirited. They can be playfully teasing or absurdly random.
+
+Profile:
+Name: {profile.name}
+Title/Major: {profile.major or 'Not specified'}
+Company: {profile.company or 'Not specified'}
+Bio: {profile.bio or 'Not specified'}
+Interests: {', '.join(profile.interests) if profile.interests else 'Not specified'}
+
+Examples of the style:
+- "Probably has 17 different coffee subscriptions"
+- "Definitely uses 'synergy' in conversations unironically"
+- "Most likely owns a standing desk they never actually stand at"
+- "Probably organized their spice rack alphabetically during quarantine"
+
+Generate 5 observations starting with "Probably..." or "Definitely...". Each should be one line.
+Make them specific to this person's profile when possible, but keep them lighthearted and fun."""
+
+  try:
+    model = genai.GenerativeModel('gemini-2.0-flash-exp')
+    response = model.generate_content(prompt)
+    text = response.text.strip()
+
+    # Parse lines starting with "Probably" or "Definitely"
+    insights = []
+    for line in text.split('\n'):
+      line = line.strip().lstrip('-•* ').strip()
+      if line.lower().startswith(('probably', 'definitely', 'likely', 'most likely')):
+        insights.append(line)
+
+    # Fallback if parsing failed
+    if not insights:
+      insights = [line.strip().lstrip('-•* ').strip() for line in text.split('\n') if line.strip()]
+
+    return SatiricalInsightResponse(insights=insights[:5])
+
+  except Exception as exc:
+    logger.error(f"Satirical insights generation failed: {exc}")
+    raise HTTPException(status_code=500, detail=f"AI generation failed: {str(exc)}") from exc
+
+
+@app.post("/api/find-socials", response_model=FindSocialsResponse)
+async def find_social_profiles(request: FindSocialsRequest) -> FindSocialsResponse:
+  """Search for social media profiles based on name and context."""
+  # This is a placeholder implementation
+  # In a real app, you'd use APIs like:
+  # - Clearbit API for professional profiles
+  # - Hunter.io for email/social links
+  # - Custom web scraping (carefully, respecting robots.txt)
+
+  name = request.name.lower().replace(" ", "")
+
+  # Generate likely profile URLs based on common patterns
+  # These are GUESSES - not verified
+  potential_profiles = [
+    SocialProfile(
+      platform="Twitter/X",
+      url=f"https://twitter.com/{name}",
+      confidence="low"
+    ),
+    SocialProfile(
+      platform="GitHub",
+      url=f"https://github.com/{name}",
+      confidence="low"
+    ),
+    SocialProfile(
+      platform="Instagram",
+      url=f"https://instagram.com/{name}",
+      confidence="low"
+    )
+  ]
+
+  # Note: This is a basic implementation
+  # For production, integrate with actual search APIs
+  logger.info(f"Generated potential social profiles for {request.name}")
+
+  return FindSocialsResponse(profiles=potential_profiles)
 
