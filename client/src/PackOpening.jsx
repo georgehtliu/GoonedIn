@@ -4,29 +4,18 @@ import { loadSlim } from 'tsparticles-slim';
 import { useCallback } from 'react';
 import { FaLinkedin } from 'react-icons/fa';
 
+const rawApiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = rawApiBase.replace(/\/$/, '');
+const BEAUTY_SCORE_ENDPOINT = `${API_BASE_URL}/beauty-score`;
+
 // Enhanced sample cards data with more content
 const SAMPLE_CARDS = [
-  {
-    id: 1,
-    name: 'George Liu',
-    major: 'CS @uwaterloo',
-    company: 'SWE @Tesla',
-    image: '/georgeliu.jpeg',
-    rarity: 'rare', // Keep one rare
-    bio: 'Passionate about autonomous vehicles and AI. Love hiking and coffee.',
-    location: 'San Francisco, CA',
-    interests: ['Tech', 'Hiking', 'Coffee', 'AI/ML'],
-    age: 24,
-    experience: '3 years',
-    email: 'george.liu@tesla.com',
-    linkedin: 'https://linkedin.com/in/george-liu'
-  },
   {
     id: 2,
     name: 'Sarah Chen',
     major: 'Engineering @MIT',
     company: 'Product Manager @Google',
-    image: null,
+    image: '/good.jpeg',
     rarity: 'common',
     bio: 'Building products that matter. Avid reader and yoga enthusiast.',
     location: 'Mountain View, CA',
@@ -41,7 +30,7 @@ const SAMPLE_CARDS = [
     name: 'Alex Rodriguez',
     major: 'Business @Stanford',
     company: 'Founder @TechStartup',
-    image: null,
+    image: '/jhts.jpg',
     rarity: 'common',
     bio: 'Serial entrepreneur. Love building things from scratch.',
     location: 'Palo Alto, CA',
@@ -56,8 +45,8 @@ const SAMPLE_CARDS = [
     name: 'Emma Wilson',
     major: 'Design @RISD',
     company: 'UX Designer @Apple',
-    image: null,
-    rarity: 'common',
+    image: '/meganfox.jpg',
+    rarity: 'rare',
     bio: 'Designing beautiful experiences. Art lover and foodie.',
     location: 'Cupertino, CA',
     interests: ['Design', 'Art', 'Food', 'Photography'],
@@ -71,7 +60,7 @@ const SAMPLE_CARDS = [
     name: 'Michael Park',
     major: 'Data Science @CMU',
     company: 'ML Engineer @OpenAI',
-    image: null,
+    image: '/Kristin_Kreuk_Photo_Op_GalaxyCon_Columbus_2022_(cropped).jpg',
     rarity: 'legendary', // Keep one legendary
     bio: 'Pushing the boundaries of AI. Chess player and music producer.',
     location: 'San Francisco, CA',
@@ -86,7 +75,7 @@ const SAMPLE_CARDS = [
     name: 'Jessica Brown',
     major: 'Finance @Wharton',
     company: 'Investment Banker @Goldman Sachs',
-    image: null,
+    image: '/neon.jpg',
     rarity: 'common',
     bio: 'Finance professional by day, fitness enthusiast by night.',
     location: 'New York, NY',
@@ -101,8 +90,8 @@ const SAMPLE_CARDS = [
     name: 'David Kim',
     major: 'CS @Berkeley',
     company: 'Software Engineer @Meta',
-    image: null,
-    rarity: 'common',
+    image: '/thailand.jpeg',
+    rarity: 'rare',
     bio: 'Full-stack developer. Love open source and gaming.',
     location: 'Menlo Park, CA',
     interests: ['Coding', 'Gaming', 'Open Source', 'Biking'],
@@ -116,7 +105,7 @@ const SAMPLE_CARDS = [
     name: 'Olivia Martinez',
     major: 'Marketing @NYU',
     company: 'Brand Manager @Nike',
-    image: null,
+    image: '/tw.jpeg',
     rarity: 'common',
     bio: 'Building brands that inspire. Runner and adventure seeker.',
     location: 'Portland, OR',
@@ -131,7 +120,7 @@ const SAMPLE_CARDS = [
     name: 'James Taylor',
     major: 'Physics @Caltech',
     company: 'Research Scientist @NASA',
-    image: null,
+    image: '/chopped1.jpg',
     rarity: 'epic', // Keep one epic
     bio: 'Exploring the cosmos. Amateur astronomer and sci-fi fan.',
     location: 'Pasadena, CA',
@@ -140,251 +129,11 @@ const SAMPLE_CARDS = [
     experience: '8 years',
     email: 'james.taylor@nasa.gov',
     linkedin: 'https://linkedin.com/in/james-taylor'
-  },
-  {
-    id: 10,
-    name: 'Sophie Anderson',
-    major: 'Medicine @Johns Hopkins',
-    company: 'Resident @Mayo Clinic',
-    image: null,
-    rarity: 'common',
-    bio: 'Dedicated to healing. Love reading medical journals and running.',
-    location: 'Rochester, MN',
-    interests: ['Medicine', 'Research', 'Running', 'Reading'],
-    age: 28,
-    experience: '6 years',
-    email: 'sophie.anderson@mayoclinic.org',
-    linkedin: 'https://linkedin.com/in/sophie-anderson'
-  },
-  {
-    id: 11,
-    name: 'Ryan Thompson',
-    major: 'CS @Georgia Tech',
-    company: 'Senior Engineer @Amazon',
-    image: null,
-    rarity: 'common',
-    bio: 'Cloud architect and AWS enthusiast. Love building scalable systems.',
-    location: 'Seattle, WA',
-    interests: ['Cloud Computing', 'AWS', 'Hiking', 'Board Games'],
-    age: 29,
-    experience: '7 years',
-    email: 'ryan.thompson@amazon.com',
-    linkedin: 'https://linkedin.com/in/ryan-thompson'
-  },
-  {
-    id: 12,
-    name: 'Maya Patel',
-    major: 'Business @Harvard',
-    company: 'Consultant @McKinsey',
-    image: null,
-    rarity: 'common',
-    bio: 'Strategy consultant helping companies transform. Yoga and meditation practitioner.',
-    location: 'Boston, MA',
-    interests: ['Strategy', 'Consulting', 'Yoga', 'Meditation'],
-    age: 27,
-    experience: '5 years',
-    email: 'maya.patel@mckinsey.com',
-    linkedin: 'https://linkedin.com/in/maya-patel'
-  },
-  {
-    id: 13,
-    name: 'Chris Johnson',
-    major: 'Engineering @UT Austin',
-    company: 'Robotics Engineer @Boston Dynamics',
-    image: null,
-    rarity: 'legendary', // Keep one legendary
-    bio: 'Building the future of robotics. Passionate about AI and automation.',
-    location: 'Boston, MA',
-    interests: ['Robotics', 'AI', '3D Printing', 'Cycling'],
-    age: 26,
-    experience: '4 years',
-    email: 'chris.johnson@bostondynamics.com',
-    linkedin: 'https://linkedin.com/in/chris-johnson'
-  },
-  {
-    id: 14,
-    name: 'Lisa Wang',
-    major: 'Design @ArtCenter',
-    company: 'Creative Director @Adobe',
-    image: null,
-    rarity: 'common',
-    bio: 'Creating visual stories that inspire. Art collector and museum enthusiast.',
-    location: 'San Jose, CA',
-    interests: ['Design', 'Art', 'Museums', 'Travel'],
-    age: 31,
-    experience: '9 years',
-    email: 'lisa.wang@adobe.com',
-    linkedin: 'https://linkedin.com/in/lisa-wang'
-  },
-  {
-    id: 15,
-    name: 'Daniel Garcia',
-    major: 'Finance @UPenn',
-    company: 'VP @JPMorgan Chase',
-    image: null,
-    rarity: 'common',
-    bio: 'Investment banking professional. Golf enthusiast and wine connoisseur.',
-    location: 'New York, NY',
-    interests: ['Finance', 'Golf', 'Wine', 'Travel'],
-    age: 32,
-    experience: '10 years',
-    email: 'daniel.garcia@jpmorgan.com',
-    linkedin: 'https://linkedin.com/in/daniel-garcia'
-  },
-  {
-    id: 16,
-    name: 'Priya Singh',
-    major: 'Medicine @Johns Hopkins',
-    company: 'Surgeon @Johns Hopkins Hospital',
-    image: null,
-    rarity: 'epic', // Change to epic
-    bio: 'Dedicated surgeon saving lives. Love reading and classical music.',
-    location: 'Baltimore, MD',
-    interests: ['Medicine', 'Surgery', 'Reading', 'Classical Music'],
-    age: 33,
-    experience: '11 years',
-    email: 'priya.singh@jhmi.edu',
-    linkedin: 'https://linkedin.com/in/priya-singh'
-  },
-  {
-    id: 17,
-    name: 'Kevin Lee',
-    major: 'CS @Stanford',
-    company: 'Founder @AI Startup',
-    image: null,
-    rarity: 'common',
-    bio: 'Building AI solutions for healthcare. Passionate about innovation.',
-    location: 'Palo Alto, CA',
-    interests: ['AI', 'Healthcare', 'Startups', 'Tennis'],
-    age: 28,
-    experience: '6 years',
-    email: 'kevin.lee@aistartup.com',
-    linkedin: 'https://linkedin.com/in/kevin-lee'
-  },
-  {
-    id: 18,
-    name: 'Rachel Green',
-    major: 'Marketing @Northwestern',
-    company: 'CMO @Tech Company',
-    image: null,
-    rarity: 'common',
-    bio: 'Marketing leader driving growth. Love cooking and hosting dinner parties.',
-    location: 'Chicago, IL',
-    interests: ['Marketing', 'Cooking', 'Entertaining', 'Fashion'],
-    age: 30,
-    experience: '8 years',
-    email: 'rachel.green@techcompany.com',
-    linkedin: 'https://linkedin.com/in/rachel-green'
-  },
-  {
-    id: 19,
-    name: 'Marcus Williams',
-    major: 'Engineering @MIT',
-    company: 'Lead Engineer @SpaceX',
-    image: null,
-    rarity: 'epic', // Change to epic
-    bio: 'Building rockets to Mars. Space enthusiast and science fiction fan.',
-    location: 'Hawthorne, CA',
-    interests: ['Space', 'Engineering', 'Sci-Fi', 'Rock Climbing'],
-    age: 29,
-    experience: '7 years',
-    email: 'marcus.williams@spacex.com',
-    linkedin: 'https://linkedin.com/in/marcus-williams'
-  },
-  {
-    id: 20,
-    name: 'Emily Chen',
-    major: 'Data Science @Berkeley',
-    company: 'Data Scientist @Netflix',
-    image: null,
-    rarity: 'common',
-    bio: 'Analyzing data to improve user experience. Movie buff and foodie.',
-    location: 'Los Gatos, CA',
-    interests: ['Data Science', 'Movies', 'Food', 'Yoga'],
-    age: 26,
-    experience: '4 years',
-    email: 'emily.chen@netflix.com',
-    linkedin: 'https://linkedin.com/in/emily-chen'
-  },
-  {
-    id: 21,
-    name: 'Nathan Brown',
-    major: 'Business @Kellogg',
-    company: 'Product Manager @Microsoft',
-    image: null,
-    rarity: 'common',
-    bio: 'Building products that empower people. Love reading and podcasts.',
-    location: 'Redmond, WA',
-    interests: ['Product Management', 'Reading', 'Podcasts', 'Running'],
-    age: 27,
-    experience: '5 years',
-    email: 'nathan.brown@microsoft.com',
-    linkedin: 'https://linkedin.com/in/nathan-brown'
-  },
-  {
-    id: 22,
-    name: 'Isabella Rodriguez',
-    major: 'Design @Parsons',
-    company: 'UX Designer @Figma',
-    image: null,
-    rarity: 'common',
-    bio: 'Designing tools for designers. Art lover and coffee enthusiast.',
-    location: 'San Francisco, CA',
-    interests: ['Design', 'Art', 'Coffee', 'Photography'],
-    age: 25,
-    experience: '3 years',
-    email: 'isabella.rodriguez@figma.com',
-    linkedin: 'https://linkedin.com/in/isabella-rodriguez'
-  },
-  {
-    id: 23,
-    name: 'Andrew Kim',
-    major: 'CS @Carnegie Mellon',
-    company: 'Security Engineer @Palantir',
-    image: null,
-    rarity: 'common',
-    bio: 'Protecting systems from threats. Cybersecurity expert and chess player.',
-    location: 'Palo Alto, CA',
-    interests: ['Cybersecurity', 'Chess', 'Cryptography', 'Hiking'],
-    age: 28,
-    experience: '6 years',
-    email: 'andrew.kim@palantir.com',
-    linkedin: 'https://linkedin.com/in/andrew-kim'
-  },
-  {
-    id: 24,
-    name: 'Samantha Taylor',
-    major: 'Law @Yale',
-    company: 'Attorney @Law Firm',
-    image: null,
-    rarity: 'common',
-    bio: 'Fighting for justice. Love reading legal cases and traveling.',
-    location: 'New York, NY',
-    interests: ['Law', 'Justice', 'Reading', 'Travel'],
-    age: 31,
-    experience: '9 years',
-    email: 'samantha.taylor@lawfirm.com',
-    linkedin: 'https://linkedin.com/in/samantha-taylor'
-  },
-  {
-    id: 25,
-    name: 'Jordan Miller',
-    major: 'Engineering @Caltech',
-    company: 'Research Engineer @Google X',
-    image: null,
-    rarity: 'epic', // Change to epic
-    bio: 'Working on moonshot projects. Innovation enthusiast and maker.',
-    location: 'Mountain View, CA',
-    interests: ['Innovation', 'Research', 'Making', 'Surfing'],
-    age: 27,
-    experience: '5 years',
-    email: 'jordan.miller@google.com',
-    linkedin: 'https://linkedin.com/in/jordan-miller'
   }
 ];
 
 // Swipeable Card Component - matches ProfileCard format exactly
-const SwipeableCard = ({ card, onSwipe, isRevealed, isActive, onFlip }) => {
+const SwipeableCard = ({ card, onSwipe, isRevealed, isActive, onFlip, attractivenessScore }) => {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [rotation, setRotation] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -616,6 +365,26 @@ const SwipeableCard = ({ card, onSwipe, isRevealed, isActive, onFlip }) => {
   // Show back if: card is not revealed OR (revealed AND user flipped it to show back)
   const effectiveFlip = !isRevealed || (isRevealed && isFlipped);
 
+  const scoreLabel = (() => {
+    if (attractivenessScore === undefined) {
+      return 'Scoring...';
+    }
+    if (attractivenessScore === null) {
+      return 'N/A';
+    }
+    if (typeof attractivenessScore === 'number' && !Number.isNaN(attractivenessScore)) {
+      return attractivenessScore.toFixed(2);
+    }
+    if (typeof attractivenessScore === 'string' && attractivenessScore.trim().length > 0) {
+      const parsed = Number(attractivenessScore);
+      if (!Number.isNaN(parsed)) {
+        return parsed.toFixed(2);
+      }
+      return attractivenessScore;
+    }
+    return null;
+  })();
+
   return (
     <div
       ref={cardRef}
@@ -667,6 +436,13 @@ const SwipeableCard = ({ card, onSwipe, isRevealed, isActive, onFlip }) => {
         }
       }}
     >
+      {scoreLabel && (
+        <div className="absolute top-4 right-4 z-50">
+          <span className="px-3 py-1 rounded-full bg-black/80 text-white text-sm font-semibold border border-white/20">
+            {scoreLabel}
+          </span>
+        </div>
+      )}
       {/* Swipe indicators - only show for revealed cards */}
       {isDragging && isRevealed && (
         <>
@@ -881,6 +657,108 @@ const PackOpening = ({ onCardLiked = null }) => {
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [revealedCards, setRevealedCards] = useState([]);
   const [isRevealing, setIsRevealing] = useState(false);
+  const [attractivenessScores, setAttractivenessScores] = useState({});
+  const [isScoring, setIsScoring] = useState(false);
+  const [packCompleted, setPackCompleted] = useState(() => {
+    try {
+      return localStorage.getItem('daily-pack-claimed') === new Date().toISOString().slice(0, 10);
+    } catch {
+      return false;
+    }
+  });
+  const fetchRequestIdRef = useRef(0);
+
+  const resetDailyLock = useCallback(() => {
+    try {
+      localStorage.removeItem('daily-pack-claimed');
+    } catch {
+      // ignore storage errors
+    }
+    setPackCompleted(false);
+  }, []);
+
+  const fetchAttractivenessScores = useCallback(async (packCards, requestId) => {
+    setIsScoring(true);
+    await Promise.all(
+      packCards.map(async (card) => {
+        try {
+          const imageResponse = await fetch(card.image);
+          if (!imageResponse.ok) {
+            throw new Error(`Image fetch failed with status ${imageResponse.status}`);
+          }
+
+          const blob = await imageResponse.blob();
+          const formData = new FormData();
+          formData.append('image', blob, card.image.split('/').pop() ?? `${card.id}.jpg`);
+
+          if (card.name) {
+            formData.append('name', card.name);
+          }
+
+          if (card.gender) {
+            formData.append('gender', card.gender);
+          }
+
+          const response = await fetch(BEAUTY_SCORE_ENDPOINT, {
+            method: 'POST',
+            body: formData
+          });
+
+          if (!response.ok) {
+            throw new Error(`Beauty score request failed with status ${response.status}`);
+          }
+
+          const payload = await response.json();
+          let scoreValue = payload?.score ?? null;
+
+          if (scoreValue === null) {
+            const raw = payload?.raw;
+            if (Array.isArray(raw)) {
+              scoreValue = raw[0];
+            } else if (raw?.data && Array.isArray(raw.data)) {
+              scoreValue = raw.data[0];
+            } else if (raw !== undefined) {
+              scoreValue = raw;
+            }
+          }
+
+          if (typeof scoreValue === 'string') {
+            const parsed = Number(scoreValue);
+            if (!Number.isNaN(parsed)) {
+              scoreValue = parsed;
+            }
+          }
+
+          console.debug('Beauty score fetched', {
+            card: card.name,
+            score: scoreValue,
+            raw: payload
+          });
+
+          if (requestId !== fetchRequestIdRef.current) {
+            return;
+          }
+
+          setAttractivenessScores((prev) => ({
+            ...prev,
+            [card.id]: scoreValue
+          }));
+        } catch (error) {
+          console.error('Failed to fetch beauty score for card', card?.name, error);
+          if (requestId !== fetchRequestIdRef.current) {
+            return;
+          }
+          setAttractivenessScores((prev) => ({
+            ...prev,
+            [card.id]: null
+          }));
+        }
+      })
+    );
+    if (requestId === fetchRequestIdRef.current) {
+      setIsScoring(false);
+    }
+  }, []);
 
   const particlesInit = useCallback(async (engine) => {
     await loadSlim(engine);
@@ -952,6 +830,9 @@ const PackOpening = ({ onCardLiked = null }) => {
   };
 
   const openPack = () => {
+    if (packCompleted) {
+      return;
+    }
     // Rarity order: legendary > epic > rare > common
     const rarityOrder = { legendary: 4, epic: 3, rare: 2, common: 1 };
     
@@ -981,12 +862,19 @@ const PackOpening = ({ onCardLiked = null }) => {
     
     setCurrentPack(pack);
     setPackOpened(true);
+    setIsScoring(true);
     setCurrentCardIndex(0);
     setRevealedCards([]);
     setIsRevealing(false);
+    setAttractivenessScores({});
+
+    const nextRequestId = fetchRequestIdRef.current + 1;
+    fetchRequestIdRef.current = nextRequestId;
+    fetchAttractivenessScores(pack, nextRequestId);
   };
 
   const handleSwipe = (direction) => {
+    if (currentCardIndex >= currentPack.length) return;
     console.log(`🎯 SWIPE ${direction.toUpperCase()}: Current index ${currentCardIndex}`);
     const currentCard = currentPack[currentCardIndex];
     
@@ -1009,8 +897,15 @@ const PackOpening = ({ onCardLiked = null }) => {
       }
       if (nextIndex >= currentPack.length) {
         // All cards processed
+        try {
+          const today = new Date().toISOString().slice(0, 10);
+          localStorage.setItem('daily-pack-claimed', today);
+        } catch {
+          // ignore storage errors
+        }
+        setPackCompleted(true);
         setTimeout(() => {
-          resetPack();
+          setPackOpened(false);
         }, 1000);
       }
       return nextIndex;
@@ -1042,9 +937,10 @@ const PackOpening = ({ onCardLiked = null }) => {
     setIsRevealing(false);
   };
 
-  const currentCard = currentPack[currentCardIndex];
-  const isCurrentCardRevealed = revealedCards.includes(currentCardIndex);
+  const currentCard = currentCardIndex < currentPack.length ? currentPack[currentCardIndex] : null;
+  const isCurrentCardRevealed = currentCardIndex < currentPack.length && revealedCards.includes(currentCardIndex);
   const hasMoreCards = currentCardIndex < currentPack.length - 1;
+  const isPackComplete = currentCardIndex >= currentPack.length;
 
   return (
     <div className="h-screen w-screen bg-black text-white overflow-hidden fixed inset-0">
@@ -1060,73 +956,102 @@ const PackOpening = ({ onCardLiked = null }) => {
       {/* Content */}
       <div className="relative z-20 h-full flex flex-col items-center justify-center px-6 py-12">
         {!packOpened ? (
-          // Pack selection screen
-          <div className="text-center space-y-8">
-            <h1 className="text-6xl md:text-8xl font-bold mb-6 text-white drop-shadow-2xl animate-fade-in">
-              Open Your First Pack
-            </h1>
-            <p className="text-xl md:text-2xl mb-10 text-white/80 drop-shadow-lg max-w-2xl mx-auto">
-              Get 5 new matches today! Cards will reveal one by one.
-            </p>
-            <div className="relative inline-block">
-              {/* Multiple dramatic glow layers */}
-              <div className="absolute inset-0 rounded-2xl bg-pink-500 blur-3xl opacity-80 animate-pulse-glow"></div>
-              <div className="absolute inset-0 rounded-2xl bg-purple-400 blur-2xl opacity-60 animate-pulse-glow-delayed"></div>
-              <div className="absolute -inset-2 rounded-2xl bg-pink-400 blur-xl opacity-50 animate-pulse-glow-slow"></div>
-              <div className="absolute -inset-4 rounded-2xl bg-purple-500 blur-2xl opacity-30 animate-pulse-glow"></div>
-              
-              {/* Shimmer effect overlay */}
-              <div className="absolute inset-0 rounded-2xl overflow-hidden">
-                <div className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12"></div>
+          packCompleted ? (
+            // Pack completed screen
+            <div className="text-center space-y-8">
+              <h1 className="text-6xl md:text-8xl font-bold mb-6 text-white drop-shadow-2xl">
+                No More Cards Today
+              </h1>
+              <p className="text-xl md:text-2xl mb-10 text-white/80 drop-shadow-lg max-w-2xl mx-auto">
+                You've already opened today's pack. Come back tomorrow for fresh matches!
+              </p>
+              <div className="space-y-4 flex flex-col items-center">
+                <div className="text-6xl">🕒</div>
+                <button
+                  onClick={resetDailyLock}
+                  className="px-6 py-3 rounded-full bg-white/10 text-white/80 hover:bg-white/20 transition-all"
+                >
+                  Unlock another pack for testing
+                </button>
               </div>
-              
-              {/* 3D Pack Box Visual */}
-              <div className="absolute -top-24 left-1/2 transform -translate-x-1/2 pointer-events-none z-0">
-                <div className="relative w-40 h-40 animate-float">
-                  {/* Box shadow */}
-                  <div className="absolute inset-0 bg-black/40 blur-3xl transform translate-y-12 scale-150"></div>
-                  {/* Glowing box */}
-                  <div className="relative w-full h-full">
-                    {/* Main box with 3D effect */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-pink-400 via-purple-500 to-pink-600 rounded-xl shadow-2xl border-4 border-pink-300 transform rotate-3 perspective-1000">
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-7xl drop-shadow-2xl">📦</span>
+            </div>
+          ) : (
+            // Pack selection screen
+            <div className="text-center space-y-8">
+              <h1 className="text-6xl md:text-8xl font-bold mb-6 text-white drop-shadow-2xl animate-fade-in">
+                Open Your First Pack
+              </h1>
+              <p className="text-xl md:text-2xl mb-10 text-white/80 drop-shadow-lg max-w-2xl mx-auto">
+                Get 5 new matches today! Cards will reveal one by one.
+              </p>
+              <div className="relative inline-block">
+                {/* Multiple dramatic glow layers */}
+                <div className="absolute inset-0 rounded-2xl bg-pink-500 blur-3xl opacity-80 animate-pulse-glow"></div>
+                <div className="absolute inset-0 rounded-2xl bg-purple-400 blur-2xl opacity-60 animate-pulse-glow-delayed"></div>
+                <div className="absolute -inset-2 rounded-2xl bg-pink-400 blur-xl opacity-50 animate-pulse-glow-slow"></div>
+                <div className="absolute -inset-4 rounded-2xl bg-purple-500 blur-2xl opacity-30 animate-pulse-glow"></div>
+                
+                {/* Shimmer effect overlay */}
+                <div className="absolute inset-0 rounded-2xl overflow-hidden">
+                  <div className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12"></div>
+                </div>
+                
+                {/* 3D Pack Box Visual */}
+                <div className="absolute -top-24 left-1/2 transform -translate-x-1/2 pointer-events-none z-0">
+                  <div className="relative w-40 h-40 animate-float">
+                    {/* Box shadow */}
+                    <div className="absolute inset-0 bg-black/40 blur-3xl transform translate-y-12 scale-150"></div>
+                    {/* Glowing box */}
+                    <div className="relative w-full h-full">
+                      {/* Main box with 3D effect */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-pink-400 via-purple-500 to-pink-600 rounded-xl shadow-2xl border-4 border-pink-300 transform rotate-3 perspective-1000">
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-7xl drop-shadow-2xl">📦</span>
+                        </div>
+                        {/* Shine overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-transparent rounded-xl"></div>
+                        {/* Top highlight */}
+                        <div className="absolute top-0 left-0 right-0 h-1/3 bg-gradient-to-b from-white/40 to-transparent rounded-t-xl"></div>
                       </div>
-                      {/* Shine overlay */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-transparent rounded-xl"></div>
-                      {/* Top highlight */}
-                      <div className="absolute top-0 left-0 right-0 h-1/3 bg-gradient-to-b from-white/40 to-transparent rounded-t-xl"></div>
+                      {/* Glow rings */}
+                      <div className="absolute -inset-4 bg-pink-400/30 rounded-xl blur-xl animate-pulse"></div>
+                      <div className="absolute -inset-8 bg-purple-400/20 rounded-xl blur-2xl animate-pulse" style={{ animationDelay: '0.5s' }}></div>
                     </div>
-                    {/* Glow rings */}
-                    <div className="absolute -inset-4 bg-pink-400/30 rounded-xl blur-xl animate-pulse"></div>
-                    <div className="absolute -inset-8 bg-purple-400/20 rounded-xl blur-2xl animate-pulse" style={{ animationDelay: '0.5s' }}></div>
                   </div>
                 </div>
+                
+                {/* Pack button */}
+                <button
+                  onClick={openPack}
+                  className="relative bg-gradient-to-r from-pink-500 via-purple-500 to-pink-600 text-white px-20 py-10 rounded-2xl text-4xl font-bold transition-all duration-300 shadow-[0_0_40px_rgba(236,72,153,0.8),0_0_80px_rgba(168,85,247,0.6),inset_0_2px_10px_rgba(255,255,255,0.3)] hover:shadow-[0_0_60px_rgba(236,72,153,1),0_0_120px_rgba(168,85,247,0.8),inset_0_2px_15px_rgba(255,255,255,0.5)] hover:scale-110 active:scale-95 transform hover:-translate-y-1 border-2 border-pink-300/50 overflow-hidden group cursor-pointer"
+                >
+                  {/* Button shine effect */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent transform -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                  
+                  {/* Button content */}
+                  <div className="relative z-10 flex items-center justify-center gap-4">
+                    <span className="text-5xl animate-bounce-slow">✨</span>
+                    <span className="tracking-wide">OPEN YOUR PACK</span>
+                    <span className="text-5xl animate-bounce-slow" style={{ animationDelay: '0.2s' }}>✨</span>
+                  </div>
+                  
+                  {/* Sparkle particles */}
+                  <div className="absolute inset-0 pointer-events-none">
+                    <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-pink-300 rounded-full animate-sparkle opacity-80"></div>
+                    <div className="absolute top-3/4 right-1/4 w-2 h-2 bg-purple-300 rounded-full animate-sparkle opacity-80" style={{ animationDelay: '0.3s' }}></div>
+                    <div className="absolute bottom-1/4 left-1/2 w-2 h-2 bg-pink-400 rounded-full animate-sparkle opacity-80" style={{ animationDelay: '0.6s' }}></div>
+                  </div>
+                </button>
               </div>
-              
-              {/* Pack button */}
-              <button
-                onClick={openPack}
-                className="relative bg-gradient-to-r from-pink-500 via-purple-500 to-pink-600 text-white px-20 py-10 rounded-2xl text-4xl font-bold transition-all duration-300 shadow-[0_0_40px_rgba(236,72,153,0.8),0_0_80px_rgba(168,85,247,0.6),inset_0_2px_10px_rgba(255,255,255,0.3)] hover:shadow-[0_0_60px_rgba(236,72,153,1),0_0_120px_rgba(168,85,247,0.8),inset_0_2px_15px_rgba(255,255,255,0.5)] hover:scale-110 active:scale-95 transform hover:-translate-y-1 border-2 border-pink-300/50 overflow-hidden group cursor-pointer"
-              >
-                {/* Button shine effect */}
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent transform -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-                
-                {/* Button content */}
-                <div className="relative z-10 flex items-center justify-center gap-4">
-                  <span className="text-5xl animate-bounce-slow">✨</span>
-                  <span className="tracking-wide">OPEN YOUR PACK</span>
-                  <span className="text-5xl animate-bounce-slow" style={{ animationDelay: '0.2s' }}>✨</span>
-                </div>
-                
-                {/* Sparkle particles */}
-                <div className="absolute inset-0 pointer-events-none">
-                  <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-pink-300 rounded-full animate-sparkle opacity-80"></div>
-                  <div className="absolute top-3/4 right-1/4 w-2 h-2 bg-purple-300 rounded-full animate-sparkle opacity-80" style={{ animationDelay: '0.3s' }}></div>
-                  <div className="absolute bottom-1/4 left-1/2 w-2 h-2 bg-pink-400 rounded-full animate-sparkle opacity-80" style={{ animationDelay: '0.6s' }}></div>
-                </div>
-              </button>
             </div>
+          )
+        ) : isScoring ? (
+          <div className="flex flex-col items-center justify-center space-y-6">
+            <div className="relative">
+              <div className="w-24 h-24 border-4 border-pink-400 border-t-transparent rounded-full animate-spin"></div>
+              <div className="absolute inset-0 flex items-center justify-center text-3xl">📊</div>
+            </div>
+            <div className="text-xl text-white/80">Scoring your pack...</div>
           </div>
         ) : (
           // Pack opening screen
@@ -1204,6 +1129,7 @@ const PackOpening = ({ onCardLiked = null }) => {
                         console.log(`🎯 onFlip callback for card ${index} (${card?.name})`);
                         handleCardFlip(index);
                       }}
+                      attractivenessScore={attractivenessScores[card.id]}
                     />
                   </div>
                 );
