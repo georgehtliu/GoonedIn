@@ -3,17 +3,24 @@ import uuid
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Literal
 import logging
+import asyncio
+import os
+from urllib.parse import quote_plus
 
 import httpx
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from gender_guesser import detector as gender_detector
 
 HUGGINGFACE_ENDPOINT = "https://thwanx-beautyrate.hf.space/api/predict"
 DEFAULT_FN_INDEX = 0
 _gender_detector = gender_detector.Detector(case_sensitive=False)
 logger = logging.getLogger(__name__)
+
+PHANTOMBUSTER_BASE_URL = "https://api.phantombuster.com/api/v2"
+PHANTOMBUSTER_MAX_WAIT_SECONDS = 180
+PHANTOMBUSTER_POLL_INTERVAL_SECONDS = 5
 
 
 def _extract_primary_score(raw: Any) -> Any:
@@ -141,6 +148,86 @@ class BeautyScoreResponse(BaseModel):
   score: float | None = None
 
 
+class PhantomProfile(BaseModel):
+  profile_url: str | None = None
+  name: str | None = None
+  headline: str | None = None
+  location: str | None = None
+  raw: dict[str, Any] | None = None
+
+
+class PhantomSearchRequest(BaseModel):
+  query: str = Field(default="Waterloo girls", min_length=1, max_length=200)
+  limit: int = Field(default=5, ge=1, le=1000)
+  search_url: str | None = None
+  category: str | None = None
+  search_type: str | None = None
+  connection_degrees: list[str] | None = None
+  lines_per_launch: int | None = None
+  results_per_launch: int | None = None
+  results_per_search: int | None = None
+  enrich: bool | None = None
+
+
+def _build_search_argument(request: PhantomSearchRequest, session_cookie: str) -> dict[str, Any]:
+  category = request.category or os.getenv("PHANTOMBUSTER_CATEGORY") or "People"
+  search_type = request.search_type or os.getenv("PHANTOMBUSTER_SEARCH_TYPE") or "linkedInSearchUrl"
+  connection_degrees_env = os.getenv("PHANTOMBUSTER_CONNECTION_DEGREES", "")
+  connection_degrees = request.connection_degrees or [d.strip() for d in connection_degrees_env.split(",") if d.strip()]
+  lines_per_launch = request.lines_per_launch or int(os.getenv("PHANTOMBUSTER_LINES_PER_LAUNCH", "10"))
+  env_results_per_launch = int(os.getenv("PHANTOMBUSTER_RESULTS_PER_LAUNCH", str(request.limit)))
+  env_results_per_search = int(os.getenv("PHANTOMBUSTER_RESULTS_PER_SEARCH", str(request.limit)))
+  effective_results_per_launch = max(request.limit, request.results_per_launch or env_results_per_launch)
+  effective_results_per_search = max(request.limit, request.results_per_search or env_results_per_search)
+  enrich_env = os.getenv("PHANTOMBUSTER_ENRICH", "true").lower() == "true"
+  enrich = request.enrich if request.enrich is not None else enrich_env
+  search_url = request.search_url or os.getenv("PHANTOMBUSTER_LINKEDIN_SEARCH_URL")
+  if search_type == "linkedInSearchUrl" and not search_url:
+    encoded_query = quote_plus(request.query)
+    search_url = f"https://www.linkedin.com/search/results/all/?keywords={encoded_query}&origin=GLOBAL_SEARCH_HEADER"
+
+  identity_id = os.getenv("PHANTOMBUSTER_IDENTITY_ID")
+  user_agent = os.getenv("PHANTOMBUSTER_USER_AGENT")
+
+  argument: dict[str, Any] = {
+    "category": category,
+    "searchType": search_type,
+    "sessionCookie": session_cookie,
+    "numberOfLinesPerLaunch": lines_per_launch,
+    "numberOfResultsPerLaunch": effective_results_per_launch,
+    "numberOfResultsPerSearch": effective_results_per_search,
+    "enrichLeadsWithAdditionalInformation": enrich,
+  }
+
+  if search_url:
+    argument["linkedInSearchUrl"] = search_url
+
+  if connection_degrees:
+    argument["connectionDegreesToScrape"] = connection_degrees
+
+  if user_agent:
+    argument["userAgent"] = user_agent
+
+  if identity_id:
+    identity_payload: dict[str, Any] = {
+      "identityId": identity_id,
+      "sessionCookie": session_cookie
+    }
+    if user_agent:
+      identity_payload["userAgent"] = user_agent
+    argument["identities"] = [identity_payload]
+
+  return argument
+
+
+class PhantomSearchResponse(BaseModel):
+  query: str
+  limit: int
+  profiles: list[PhantomProfile]
+  container_id: str
+  output_url: str | None = None
+
+
 def _infer_gender_from_name(name: str | None) -> Literal["woman", "man"] | None:
   if not name:
     return None
@@ -225,4 +312,132 @@ async def get_beauty_score(
   print(f"[beauty-score] gender={resolved_gender} raw={score_raw!r} score={score_value}")
 
   return BeautyScoreResponse(raw=raw_payload, gender=resolved_gender, score=score_value)
+
+
+def _extract_profile_entry(entry: dict[str, Any]) -> PhantomProfile:
+  profile_url = entry.get("profileUrl") or entry.get("linkedinUrl") or entry.get("publicProfileUrl") or entry.get("url")
+  name = entry.get("fullName") or entry.get("name")
+  headline = entry.get("headline") or entry.get("occupation")
+  location = entry.get("locationName") or entry.get("location")
+  return PhantomProfile(
+    profile_url=profile_url,
+    name=name,
+    headline=headline,
+    location=location,
+    raw=entry
+  )
+
+
+@app.post("/phantombuster/linkedin-search", response_model=PhantomSearchResponse)
+async def phantombuster_linkedin_search(payload: PhantomSearchRequest) -> PhantomSearchResponse:
+  api_key = os.getenv("PHANTOMBUSTER_API_KEY")
+  agent_id = os.getenv("PHANTOMBUSTER_SEARCH_AGENT_ID")
+  session_cookie = os.getenv("PHANTOMBUSTER_SESSION_COOKIE")
+
+  if not api_key or not agent_id:
+    raise HTTPException(status_code=500, detail="PhantomBuster credentials are not configured (missing PHANTOMBUSTER_API_KEY or PHANTOMBUSTER_SEARCH_AGENT_ID).")
+
+  if not session_cookie:
+    raise HTTPException(status_code=500, detail="PhantomBuster session cookie is not configured (missing PHANTOMBUSTER_SESSION_COOKIE).")
+
+  headers = {
+    "X-Phantombuster-Key-1": api_key,
+    "Content-Type": "application/json"
+  }
+
+  launch_body: dict[str, Any] = {
+    "id": agent_id,
+    "argument": _build_search_argument(payload, session_cookie)
+  }
+
+  try:
+    async with httpx.AsyncClient(timeout=30.0) as client:
+      launch_resp = await client.post(f"{PHANTOMBUSTER_BASE_URL}/agents/launch", headers=headers, json=launch_body)
+      launch_resp.raise_for_status()
+      launch_data = launch_resp.json()
+      container_id = launch_data.get("containerId") or launch_data.get("data", {}).get("id")
+      if not container_id:
+        logger.error("PhantomBuster launch response missing containerId: %s", launch_data)
+        raise HTTPException(status_code=502, detail="PhantomBuster launch did not return a container identifier.")
+
+      logger.info("Launched PhantomBuster agent %s (container %s) for query '%s'", agent_id, container_id, payload.query)
+
+      container_data: dict[str, Any] | None = None
+      elapsed = 0
+      while elapsed <= PHANTOMBUSTER_MAX_WAIT_SECONDS:
+        container_resp = await client.get(
+          f"{PHANTOMBUSTER_BASE_URL}/containers/fetch",
+          headers=headers,
+          params={"id": container_id}
+        )
+        container_resp.raise_for_status()
+        container_data = container_resp.json()
+        container = container_data.get("container") or container_data
+        status = container.get("status")
+        logger.debug("PhantomBuster container %s status=%s", container_id, status)
+
+        if status in {"finished", "failed", "aborted", "stopped"}:
+          break
+
+        await asyncio.sleep(PHANTOMBUSTER_POLL_INTERVAL_SECONDS)
+        elapsed += PHANTOMBUSTER_POLL_INTERVAL_SECONDS
+
+      if not container_data:
+        raise HTTPException(status_code=502, detail="Unable to obtain PhantomBuster container status.")
+
+      container = container_data.get("container") or container_data
+      status = container.get("status")
+
+      if status != "finished":
+        logger.error("PhantomBuster container %s ended with status %s", container_id, status)
+        raise HTTPException(status_code=502, detail=f"PhantomBuster run ended with status: {status}")
+
+      output = container.get("output", {}) if isinstance(container, dict) else {}
+      json_url = None
+      if isinstance(output, dict):
+        json_candidate = output.get("json") or output.get("jsonUrl") or output.get("resultObjectUrl")
+        if isinstance(json_candidate, list):
+          json_candidate = json_candidate[0] if json_candidate else None
+        json_url = json_candidate
+
+      profiles: list[PhantomProfile] = []
+      if json_url:
+        try:
+          result_resp = await client.get(json_url)
+          result_resp.raise_for_status()
+          result_data = result_resp.json()
+          if isinstance(result_data, list):
+            for entry in result_data:
+              if isinstance(entry, dict):
+                profiles.append(_extract_profile_entry(entry))
+                if len(profiles) >= payload.limit:
+                  break
+        except httpx.HTTPError as exc:
+          logger.warning("Failed to download PhantomBuster JSON output: %s", exc)
+      elif isinstance(output, dict) and output.get("resultObject"):
+        result_object = output["resultObject"]
+        if isinstance(result_object, list):
+          for entry in result_object:
+            if isinstance(entry, dict):
+              profiles.append(_extract_profile_entry(entry))
+              if len(profiles) >= payload.limit:
+                break
+
+      return PhantomSearchResponse(
+        query=payload.query,
+        limit=payload.limit,
+        profiles=profiles,
+        container_id=str(container_id),
+        output_url=json_url
+      )
+
+  except httpx.HTTPStatusError as exc:
+    logger.error("PhantomBuster API error: %s", exc.response.text)
+    raise HTTPException(status_code=exc.response.status_code, detail=f"PhantomBuster API error: {exc.response.text}") from exc
+  except httpx.HTTPError as exc:
+    logger.error("PhantomBuster network error: %s", exc)
+    raise HTTPException(status_code=502, detail=f"PhantomBuster network error: {exc}") from exc
+  except asyncio.TimeoutError as exc:
+    logger.error("Timed out waiting for PhantomBuster container: %s", exc)
+    raise HTTPException(status_code=504, detail="Timed out waiting for PhantomBuster results.") from exc
 
