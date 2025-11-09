@@ -4,23 +4,12 @@ import { loadSlim } from 'tsparticles-slim';
 import { useCallback } from 'react';
 import { FaLinkedin } from 'react-icons/fa';
 
+const rawApiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = rawApiBase.replace(/\/$/, '');
+const BEAUTY_SCORE_ENDPOINT = `${API_BASE_URL}/beauty-score`;
+
 // Enhanced sample cards data with more content
 const SAMPLE_CARDS = [
-  {
-    id: 1,
-    name: 'George Liu',
-    major: 'CS @uwaterloo',
-    company: 'SWE @Tesla',
-    image: '/georgeliu.jpeg',
-    rarity: 'rare', // Keep one rare
-    bio: 'Passionate about autonomous vehicles and AI. Love hiking and coffee.',
-    location: 'San Francisco, CA',
-    interests: ['Tech', 'Hiking', 'Coffee', 'AI/ML'],
-    age: 24,
-    experience: '3 years',
-    email: 'george.liu@tesla.com',
-    linkedin: 'https://linkedin.com/in/george-liu'
-  },
   {
     id: 2,
     name: 'Sarah Chen',
@@ -144,7 +133,7 @@ const SAMPLE_CARDS = [
 ];
 
 // Swipeable Card Component - matches ProfileCard format exactly
-const SwipeableCard = ({ card, onSwipe, isRevealed, isActive }) => {
+const SwipeableCard = ({ card, onSwipe, isRevealed, isActive, attractivenessScore }) => {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [rotation, setRotation] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -317,6 +306,26 @@ const SwipeableCard = ({ card, onSwipe, isRevealed, isActive }) => {
   const opacity = isActive ? 1 : 0.3;
   const scale = isActive ? 1 : 0.9;
 
+  const scoreLabel = (() => {
+    if (attractivenessScore === undefined) {
+      return 'Scoring...';
+    }
+    if (attractivenessScore === null) {
+      return 'N/A';
+    }
+    if (typeof attractivenessScore === 'number' && !Number.isNaN(attractivenessScore)) {
+      return attractivenessScore.toFixed(2);
+    }
+    if (typeof attractivenessScore === 'string' && attractivenessScore.trim().length > 0) {
+      const parsed = Number(attractivenessScore);
+      if (!Number.isNaN(parsed)) {
+        return parsed.toFixed(2);
+      }
+      return attractivenessScore;
+    }
+    return null;
+  })();
+
   return (
     <div
       ref={cardRef}
@@ -336,6 +345,13 @@ const SwipeableCard = ({ card, onSwipe, isRevealed, isActive }) => {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
+      {scoreLabel && (
+        <div className="absolute top-4 right-4 z-50">
+          <span className="px-3 py-1 rounded-full bg-black/80 text-white text-sm font-semibold border border-white/20">
+            {scoreLabel}
+          </span>
+        </div>
+      )}
       {/* Swipe indicators */}
       {isDragging && (
         <>
@@ -550,6 +566,99 @@ const PackOpening = ({ onCardLiked }) => {
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [revealedCards, setRevealedCards] = useState([]);
   const [isRevealing, setIsRevealing] = useState(false);
+  const [attractivenessScores, setAttractivenessScores] = useState({});
+  const [isScoring, setIsScoring] = useState(false);
+  const [packCompleted, setPackCompleted] = useState(() => {
+    try {
+      return localStorage.getItem('daily-pack-claimed') === new Date().toISOString().slice(0, 10);
+    } catch {
+      return false;
+    }
+  });
+  const fetchRequestIdRef = useRef(0);
+
+  const fetchAttractivenessScores = useCallback(async (packCards, requestId) => {
+    setIsScoring(true);
+    await Promise.all(
+      packCards.map(async (card) => {
+        try {
+          const imageResponse = await fetch(card.image);
+          if (!imageResponse.ok) {
+            throw new Error(`Image fetch failed with status ${imageResponse.status}`);
+          }
+
+          const blob = await imageResponse.blob();
+          const formData = new FormData();
+          formData.append('image', blob, card.image.split('/').pop() ?? `${card.id}.jpg`);
+
+          if (card.name) {
+            formData.append('name', card.name);
+          }
+
+          if (card.gender) {
+            formData.append('gender', card.gender);
+          }
+
+          const response = await fetch(BEAUTY_SCORE_ENDPOINT, {
+            method: 'POST',
+            body: formData
+          });
+
+          if (!response.ok) {
+            throw new Error(`Beauty score request failed with status ${response.status}`);
+          }
+
+          const payload = await response.json();
+          let scoreValue = payload?.score ?? null;
+
+          if (scoreValue === null) {
+            const raw = payload?.raw;
+            if (Array.isArray(raw)) {
+              scoreValue = raw[0];
+            } else if (raw?.data && Array.isArray(raw.data)) {
+              scoreValue = raw.data[0];
+            } else if (raw !== undefined) {
+              scoreValue = raw;
+            }
+          }
+
+          if (typeof scoreValue === 'string') {
+            const parsed = Number(scoreValue);
+            if (!Number.isNaN(parsed)) {
+              scoreValue = parsed;
+            }
+          }
+
+          console.debug('Beauty score fetched', {
+            card: card.name,
+            score: scoreValue,
+            raw: payload
+          });
+
+          if (requestId !== fetchRequestIdRef.current) {
+            return;
+          }
+
+          setAttractivenessScores((prev) => ({
+            ...prev,
+            [card.id]: scoreValue
+          }));
+        } catch (error) {
+          console.error('Failed to fetch beauty score for card', card?.name, error);
+          if (requestId !== fetchRequestIdRef.current) {
+            return;
+          }
+          setAttractivenessScores((prev) => ({
+            ...prev,
+            [card.id]: null
+          }));
+        }
+      })
+    );
+    if (requestId === fetchRequestIdRef.current) {
+      setIsScoring(false);
+    }
+  }, []);
 
   const particlesInit = useCallback(async (engine) => {
     await loadSlim(engine);
@@ -621,6 +730,9 @@ const PackOpening = ({ onCardLiked }) => {
   };
 
   const openPack = () => {
+    if (packCompleted) {
+      return;
+    }
     // Rarity order: legendary > epic > rare > common
     const rarityOrder = { legendary: 4, epic: 3, rare: 2, common: 1 };
     
@@ -650,10 +762,16 @@ const PackOpening = ({ onCardLiked }) => {
     
     setCurrentPack(pack);
     setPackOpened(true);
+    setIsScoring(true);
     setCurrentCardIndex(0);
     setRevealedCards([]);
     setIsRevealing(false);
-    
+    setAttractivenessScores({});
+
+    const nextRequestId = fetchRequestIdRef.current + 1;
+    fetchRequestIdRef.current = nextRequestId;
+    fetchAttractivenessScores(pack, nextRequestId);
+
     // Reveal first card after a short delay
     setTimeout(() => {
       setRevealedCards([0]);
@@ -694,20 +812,19 @@ const PackOpening = ({ onCardLiked }) => {
         }, 300);
       } else {
         // All cards processed
+        try {
+          const today = new Date().toISOString().slice(0, 10);
+          localStorage.setItem('daily-pack-claimed', today);
+        } catch {
+          // ignore storage errors
+        }
+        setPackCompleted(true);
         setTimeout(() => {
-          resetPack();
+          setPackOpened(false);
         }, 1000);
       }
       return nextIndex;
     });
-  };
-
-  const resetPack = () => {
-    setPackOpened(false);
-    setCurrentCardIndex(0);
-    setRevealedCards([]);
-    setCurrentPack([]);
-    setIsRevealing(false);
   };
 
   const currentCard = currentCardIndex < currentPack.length ? currentPack[currentCardIndex] : null;
@@ -729,28 +846,48 @@ const PackOpening = ({ onCardLiked }) => {
       {/* Content */}
       <div className="relative z-20 h-full flex flex-col items-center justify-center px-6 py-12">
         {!packOpened ? (
-          // Pack selection screen
-          <div className="text-center space-y-8">
-            <h1 className="text-6xl md:text-8xl font-bold mb-6 text-white drop-shadow-2xl">
-              Open Your Daily Pack
-            </h1>
-            <p className="text-xl md:text-2xl mb-10 text-white/80 drop-shadow-lg max-w-2xl mx-auto">
-              Get 5 new matches today! Cards will reveal one by one.
-            </p>
-            <div className="relative inline-block">
-              {/* Glow layers */}
-              <div className="absolute inset-0 rounded-full bg-pink-500 blur-xl opacity-75 animate-pulse-glow"></div>
-              <div className="absolute inset-0 rounded-full bg-pink-400 blur-2xl opacity-50 animate-pulse-glow-delayed"></div>
-              <div className="absolute -inset-1 rounded-full bg-pink-300 blur-sm opacity-60 animate-pulse-glow-slow"></div>
-              {/* Pack button */}
-              <button
-                onClick={openPack}
-                className="relative bg-gradient-to-r from-pink-500 via-pink-400 to-pink-500 text-white px-16 py-8 rounded-full text-3xl font-bold transition-all duration-300 shadow-[0_0_30px_rgba(236,72,153,0.6),0_0_60px_rgba(236,72,153,0.4)] hover:shadow-[0_0_40px_rgba(236,72,153,0.8),0_0_80px_rgba(236,72,153,0.6)] hover:scale-105 active:scale-95"
-              >
-                <span className="text-4xl mr-3">📦</span>
-                Open Pack
-              </button>
+          packCompleted ? (
+            <div className="text-center space-y-8">
+              <h1 className="text-6xl md:text-8xl font-bold mb-6 text-white drop-shadow-2xl">
+                No More Cards Today
+              </h1>
+              <p className="text-xl md:text-2xl mb-10 text-white/80 drop-shadow-lg max-w-2xl mx-auto">
+                You’ve already opened today’s pack. Come back tomorrow for fresh matches!
+              </p>
+              <div className="text-6xl">🕒</div>
             </div>
+          ) : (
+            // Pack selection screen
+            <div className="text-center space-y-8">
+              <h1 className="text-6xl md:text-8xl font-bold mb-6 text-white drop-shadow-2xl">
+                Open Your Daily Pack
+              </h1>
+              <p className="text-xl md:text-2xl mb-10 text-white/80 drop-shadow-lg max-w-2xl mx-auto">
+                Get 5 new matches today! Cards will reveal one by one.
+              </p>
+              <div className="relative inline-block">
+                {/* Glow layers */}
+                <div className="absolute inset-0 rounded-full bg-pink-500 blur-xl opacity-75 animate-pulse-glow"></div>
+                <div className="absolute inset-0 rounded-full bg-pink-400 blur-2xl opacity-50 animate-pulse-glow-delayed"></div>
+                <div className="absolute -inset-1 rounded-full bg-pink-300 blur-sm opacity-60 animate-pulse-glow-slow"></div>
+                {/* Pack button */}
+                <button
+                  onClick={openPack}
+                  className="relative bg-gradient-to-r from-pink-500 via-pink-400 to-pink-500 text-white px-16 py-8 rounded-full text-3xl font-bold transition-all duration-300 shadow-[0_0_30px_rgba(236,72,153,0.6),0_0_60px_rgba(236,72,153,0.4)] hover:shadow-[0_0_40px_rgba(236,72,153,0.8),0_0_80px_rgba(236,72,153,0.6)] hover:scale-105 active:scale-95"
+                >
+                  <span className="text-4xl mr-3">📦</span>
+                  Open Pack
+                </button>
+              </div>
+            </div>
+          )
+        ) : isScoring ? (
+          <div className="flex flex-col items-center justify-center space-y-6">
+            <div className="relative">
+              <div className="w-24 h-24 border-4 border-pink-400 border-t-transparent rounded-full animate-spin"></div>
+              <div className="absolute inset-0 flex items-center justify-center text-3xl">📊</div>
+            </div>
+            <div className="text-xl text-white/80">Scoring your pack...</div>
           </div>
         ) : (
           // Pack opening screen
@@ -766,64 +903,58 @@ const PackOpening = ({ onCardLiked }) => {
               </p>
             </div>
 
-            {/* Card stack */}
-            <div className="relative w-full max-w-md h-[600px] flex items-center justify-center touch-none">
-              {!isPackComplete && currentPack.map((card, index) => {
-            <div className="relative w-full max-w-md h-[480px] flex items-center justify-center touch-none">
-              {currentPack.map((card, index) => {
-                const isRevealed = revealedCards.includes(index);
-                const isActive = index === currentCardIndex && isRevealed;
-                
-                // Only show current card or cards that are being revealed
-                if (index !== currentCardIndex && !isRevealed) {
-                  return null;
-                }
-                
-                return (
-                  <SwipeableCard
-                    key={card.id}
-                    card={card}
-                    isRevealed={isRevealed}
-                    isActive={isActive}
-                    onSwipe={handleSwipe}
-                  />
-                );
-              })}
+          {/* Card stack */}
+          <div className="relative w-full max-w-md h-[480px] flex items-center justify-center touch-none">
+            {currentPack.map((card, index) => {
+              const isRevealed = revealedCards.includes(index);
+              const isActive = index === currentCardIndex && isRevealed;
 
-              {/* Pack wrapper for unrevealed cards */}
-              {!isPackComplete && !isCurrentCardRevealed && currentCard && (
-                <div className="absolute w-80 h-[600px] rounded-3xl overflow-hidden shadow-2xl border-4 border-pink-400/50 bg-gradient-to-br from-pink-600 via-purple-600 to-blue-600 flex items-center justify-center animate-pulse pointer-events-none">
-              {!isCurrentCardRevealed && currentCard && (
-                <div className="absolute w-80 h-[480px] rounded-3xl overflow-hidden shadow-2xl border-4 border-yellow-400/50 bg-gradient-to-br from-yellow-600 via-orange-600 to-red-600 flex items-center justify-center animate-pulse pointer-events-none">
-                  <div className="text-center p-8">
-                    <div className="text-8xl mb-4 animate-bounce-slow">📦</div>
-                    <div className="text-white text-2xl font-bold mb-2">Daily Pack</div>
-                    <div className="text-white/80 text-sm">Revealing...</div>
-                  </div>
-                </div>
-              )}
+              // Only show current card or cards that are being revealed
+              if (index !== currentCardIndex && !isRevealed) {
+                return null;
+              }
 
-              {/* No more cards message */}
-              {isPackComplete && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="text-4xl mb-4">✨</div>
-                    <div className="text-2xl font-bold mb-2">Pack Complete!</div>
-                    <button
-                      onClick={resetPack}
-                      className="mt-4 px-8 py-4 bg-gradient-to-r from-pink-500 via-pink-400 to-pink-500 text-white rounded-full font-semibold hover:scale-105 transition-transform shadow-lg shadow-pink-500/50"
-                    >
-                      Open Another Pack
-                    </button>
-                  </div>
+              return (
+                <SwipeableCard
+                  key={card.id}
+                  card={card}
+                  isRevealed={isRevealed}
+                  isActive={isActive}
+                  onSwipe={handleSwipe}
+                  attractivenessScore={attractivenessScores[card.id]}
+                />
+              );
+            })}
+
+            {/* Pack wrapper for unrevealed cards */}
+            {!isPackComplete && !isCurrentCardRevealed && currentCard && (
+              <div className="absolute w-80 h-[480px] rounded-3xl overflow-hidden shadow-2xl border-4 border-yellow-400/50 bg-gradient-to-br from-yellow-600 via-orange-600 to-red-600 flex items-center justify-center animate-pulse pointer-events-none">
+                <div className="text-center p-8">
+                  <div className="text-8xl mb-4 animate-bounce-slow">📦</div>
+                  <div className="text-white text-2xl font-bold mb-2">Daily Pack</div>
+                  <div className="text-white/80 text-sm">Revealing...</div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+
+            {/* No more cards message */}
+            {isPackComplete && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="text-4xl mb-4">✨</div>
+                  <div className="text-2xl font-bold mb-2">Pack Complete!</div>
+                  <p className="mt-2 text-white/70 text-sm">
+                    That’s all for today. Come back tomorrow for a fresh pack!
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
-  );
+  </div>
+);
 };
 
 export default PackOpening;

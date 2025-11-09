@@ -3,6 +3,7 @@ import Particles from 'react-particles';
 import { loadSlim } from 'tsparticles-slim';
 import { FaLinkedin } from 'react-icons/fa';
 import PackOpening from './PackOpening';
+import Roster from './Roster';
 
 const ProfileCard = () => {
   const [isFlipped, setIsFlipped] = useState(false);
@@ -207,7 +208,7 @@ const ProfileCard = () => {
   );
 };
 
-export default function DatingLandingPage() {
+function DatingLandingPage() {
   const [mousePosition, setMousePosition] = useState({ x: 50, y: 50 });
   const [surveyStarted, setSurveyStarted] = useState(false);
   const [showSurvey, setShowSurvey] = useState(false);
