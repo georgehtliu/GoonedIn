@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import Particles from 'react-particles';
 import { loadSlim } from 'tsparticles-slim';
 import { useCallback } from 'react';
+import { FaLinkedin } from 'react-icons/fa';
 
 // Enhanced sample cards data with more content
 const SAMPLE_CARDS = [
@@ -142,11 +143,15 @@ const SAMPLE_CARDS = [
   }
 ];
 
-// Swipeable Card Component
-const SwipeableCard = ({ card, onSwipe, onReveal, isRevealed, isActive }) => {
+// Swipeable Card Component - matches ProfileCard format exactly
+const SwipeableCard = ({ card, onSwipe, isRevealed, isActive }) => {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [rotation, setRotation] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [glowIntensity, setGlowIntensity] = useState(0);
+  const [rotationGlow, setRotationGlow] = useState(0);
   const startPosRef = useRef({ x: 0, y: 0 });
   const currentPosRef = useRef({ x: 0, y: 0 });
   const cardRef = useRef(null);
@@ -168,6 +173,18 @@ const SwipeableCard = ({ card, onSwipe, onReveal, isRevealed, isActive }) => {
         return 'from-gray-500 via-gray-600 to-gray-700';
     }
   };
+  const hasMovedRef = useRef(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setGlowIntensity(prev => (prev + 0.05) % (Math.PI * 2));
+      setRotationGlow(prev => (prev + 0.5) % 360);
+    }, 30);
+    return () => clearInterval(interval);
+  }, []);
+
+  const glowOpacity = 0.5 + Math.sin(glowIntensity) * 0.3;
+  const glowScale = 1 + Math.sin(glowIntensity) * 0.1;
 
   const updatePosition = useCallback(() => {
     if (animationFrameRef.current) {
@@ -183,6 +200,7 @@ const SwipeableCard = ({ card, onSwipe, onReveal, isRevealed, isActive }) => {
   const handleStart = useCallback((clientX, clientY) => {
     if (!isRevealed || !isActive) return;
     setIsDragging(true);
+    hasMovedRef.current = false;
     startPosRef.current = { x: clientX, y: clientY };
     currentPosRef.current = { x: 0, y: 0 };
     setPosition({ x: 0, y: 0 });
@@ -193,6 +211,11 @@ const SwipeableCard = ({ card, onSwipe, onReveal, isRevealed, isActive }) => {
     const deltaX = clientX - startPosRef.current.x;
     const deltaY = clientY - startPosRef.current.y;
     
+    // Check if user has moved significantly (more than 5px)
+    if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+      hasMovedRef.current = true;
+    }
+    
     currentPosRef.current = { x: deltaX, y: deltaY };
     updatePosition();
   }, [updatePosition]);
@@ -200,6 +223,14 @@ const SwipeableCard = ({ card, onSwipe, onReveal, isRevealed, isActive }) => {
   const handleEnd = useCallback(() => {
     const threshold = 30; // Very low threshold for easier swiping
     const currentX = currentPosRef.current.x;
+    
+    // If user didn't move much, treat as click for flip
+    if (!hasMovedRef.current && Math.abs(currentX) < 5) {
+      setIsFlipped(!isFlipped);
+      setIsDragging(false);
+      currentPosRef.current = { x: 0, y: 0 };
+      return;
+    }
     
     if (Math.abs(currentX) > threshold) {
       // Swipe detected - animate off screen
@@ -225,7 +256,8 @@ const SwipeableCard = ({ card, onSwipe, onReveal, isRevealed, isActive }) => {
     
     setIsDragging(false);
     currentPosRef.current = { x: 0, y: 0 };
-  }, [onSwipe]);
+    hasMovedRef.current = false;
+  }, [onSwipe, isFlipped]);
 
   // Mouse events
   const handleMouseDown = useCallback((e) => {
@@ -288,11 +320,12 @@ const SwipeableCard = ({ card, onSwipe, onReveal, isRevealed, isActive }) => {
   return (
     <div
       ref={cardRef}
-      className={`absolute w-80 h-[600px] cursor-grab active:cursor-grabbing select-none ${
+      className={`absolute w-80 h-[480px] cursor-pointer group transition-transform duration-300 ${
         isRevealed ? 'opacity-100' : 'opacity-0 pointer-events-none'
       } ${!isDragging ? 'transition-transform duration-300 ease-out' : ''}`}
-      style={{
-        transform: `translate(${position.x}px, ${position.y}px) rotate(${rotation}deg) scale(${scale})`,
+      style={{ 
+        perspective: '1000px',
+        transform: `translate(${position.x}px, ${position.y}px) rotate(${rotation}deg) scale(${isHovered && !isDragging ? 1.05 : scale})`,
         opacity: isActive ? opacity : 0,
         zIndex: isActive ? 10 : 0,
         display: isActive ? 'block' : 'none',
@@ -300,6 +333,8 @@ const SwipeableCard = ({ card, onSwipe, onReveal, isRevealed, isActive }) => {
       }}
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       {/* Swipe indicators */}
       {isDragging && (
@@ -323,115 +358,186 @@ const SwipeableCard = ({ card, onSwipe, onReveal, isRevealed, isActive }) => {
         </>
       )}
 
-      {/* Glow effect */}
-      <div
-        className={`absolute -inset-4 rounded-3xl bg-gradient-to-r ${getRarityColor(
-          card.rarity
-        )} blur-2xl opacity-60 animate-pulse-glow`}
+      {/* Multi-layered animated glow effect */}
+      <div 
+        className="absolute -inset-6 rounded-3xl blur-3xl transition-all duration-500"
+        style={{ 
+          opacity: glowOpacity,
+          transform: `scale(${glowScale}) rotate(${rotationGlow}deg)`,
+          background: `conic-gradient(from ${rotationGlow}deg, #ec4899, #a855f7, #3b82f6, #ec4899)`
+        }}
       />
-
-      <div className="relative w-full h-full rounded-3xl overflow-hidden shadow-2xl border-4 border-white/20 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-        {/* Rarity indicator */}
-        <div
-          className={`absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-bold text-white bg-gradient-to-r ${getRarityColor(
-            card.rarity
-          )} shadow-lg z-20`}
+      <div 
+        className="absolute -inset-4 rounded-3xl bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 blur-2xl"
+        style={{ 
+          opacity: glowOpacity * 0.7,
+          transform: `scale(${glowScale * 0.9}) rotate(${-rotationGlow}deg)`
+        }}
+      />
+      
+      <div 
+        className="relative w-full h-full transition-transform duration-700 preserve-3d z-20"
+        style={{
+          transformStyle: 'preserve-3d',
+          transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
+        }}
+      >
+        {/* Prestigious solid metallic gold border - only border frame */}
+        <div 
+          className="absolute inset-0 rounded-3xl z-10 backface-hidden pointer-events-none"
+          style={{
+            padding: '3px',
+            background: 'linear-gradient(135deg, #8b6914 0%, #A57B00 25%, #b8860b 50%, #A57B00 75%, #8b6914 100%)',
+            WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+            WebkitMaskComposite: 'xor',
+            mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+            maskComposite: 'exclude',
+            backfaceVisibility: 'visible'
+          }}
         >
-          {card.rarity.toUpperCase()}
+          <div className="w-full h-full rounded-3xl bg-transparent"></div>
         </div>
-
-        {/* Profile Image */}
-        <div className="h-[280px] relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-pink-600/30 via-purple-600/30 to-blue-600/30" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="relative">
-              {/* Glow rings */}
-              <div
-                className={`absolute inset-0 -m-6 rounded-full bg-gradient-to-r ${getRarityColor(
-                  card.rarity
-                )} blur-2xl opacity-50 animate-spin-slow animate-pulse-scale`}
-              />
-              <div
-                className={`absolute inset-0 -m-4 rounded-full bg-gradient-to-r ${getRarityColor(
-                  card.rarity
-                )} blur-xl opacity-60 animate-spin-reverse animate-pulse-scale-delayed`}
-              />
-
-              {/* Avatar */}
-              <div className="relative w-48 h-48 rounded-full overflow-hidden shadow-2xl border-4 border-white/30">
-                {card.image ? (
-                  <img
-                    src={card.image}
-                    alt={card.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div
-                    className={`w-full h-full bg-gradient-to-br ${getRarityColor(
-                      card.rarity
-                    )} flex items-center justify-center text-white text-5xl font-bold`}
-                  >
-                    {card.name
-                      .split(' ')
-                      .map((n) => n[0])
-                      .join('')}
+        <div 
+          className="absolute inset-0 rounded-3xl z-10 animate-metallic-shine backface-hidden pointer-events-none"
+          style={{
+            padding: '2px',
+            WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+            WebkitMaskComposite: 'xor',
+            mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+            maskComposite: 'exclude',
+            backfaceVisibility: 'visible'
+          }}
+        >
+          <div 
+            className="w-full h-full rounded-3xl"
+            style={{
+              background: 'linear-gradient(135deg, #A57B00 0%, #c99a1a 20%, #d4af37 40%, #c99a1a 60%, #A57B00 100%)'
+            }}
+          ></div>
+        </div>
+        
+        {/* Front of card */}
+        <div
+          className="absolute w-full h-full backface-hidden rounded-3xl overflow-hidden shadow-2xl border-2 border-white/20"
+          style={{ backfaceVisibility: 'hidden' }}
+        >
+          {/* Card content */}
+          <div className="relative h-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+            {/* Profile Image */}
+            <div className="h-[280px] relative overflow-hidden">
+              {/* Gradient background */}
+              <div className="absolute inset-0 bg-gradient-to-br from-pink-600/30 via-purple-600/30 to-blue-600/30" />
+              
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="relative">
+                  {/* Outer animated glow rings */}
+                  <div className="absolute inset-0 -m-6 rounded-full bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 blur-2xl opacity-50 animate-spin-slow animate-pulse-scale" />
+                  <div className="absolute inset-0 -m-4 rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 blur-xl opacity-60 animate-spin-reverse animate-pulse-scale-delayed" />
+                  <div className="absolute inset-0 -m-2 rounded-full bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 blur-lg opacity-40 animate-spin-slow" />
+                  
+                  {/* Animated rotating border ring */}
+                  <div className="absolute inset-0 -m-1 rounded-full animate-rotate-border" style={{
+                    width: 'calc(100% + 8px)',
+                    height: 'calc(100% + 8px)',
+                    background: 'conic-gradient(from 0deg, #ec4899, #a855f7, #3b82f6, #ec4899)',
+                    borderRadius: '50%',
+                    padding: '4px',
+                    mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                    WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                    maskComposite: 'exclude',
+                    WebkitMaskComposite: 'xor'
+                  }}>
+                    <div className="w-full h-full rounded-full bg-transparent"></div>
                   </div>
-                )}
+                  
+                  {/* Avatar */}
+                  <div className="relative w-52 h-52 rounded-full overflow-hidden shadow-2xl border-4 border-white/30">
+                    {card.image ? (
+                      <img 
+                        src={card.image}
+                        alt={card.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          // Fallback to initials if image fails to load
+                          e.target.style.display = 'none';
+                          e.target.parentElement.classList.add('bg-gradient-to-br', 'from-pink-500', 'via-purple-500','to-blue-500', 'flex', 'items-center', 'justify-center');
+                          const initials = card.name.split(' ').map((n) => n[0]).join('');
+                          e.target.parentElement.innerHTML = `<span class="text-white text-7xl font-bold">${initials}</span>`;
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-pink-500 via-purple-500 to-blue-500 flex items-center justify-center">
+                        <span className="text-white text-7xl font-bold">
+                          {card.name.split(' ').map((n) => n[0]).join('')}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Inner glow pulse */}
+                  <div className="absolute inset-0 -m-3 rounded-full bg-gradient-to-r from-pink-400/50 via-purple-400/50 to-blue-400/50 blur-md animate-pulse-glow-inner" />
+                </div>
+              </div>
+              
+              {/* Subtle ambient glow effect */}
+              <div 
+                className="absolute inset-0 animate-gentle-pulse pointer-events-none"
+                style={{
+                  background: 'radial-gradient(circle at center, rgba(236, 72, 153, 0.05) 0%, transparent 70%)'
+                }}
+              />
+            </div>
+            
+            {/* Border divider */}
+            <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+            
+            {/* Profile Info */}
+            <div className="flex-1 flex flex-col items-center justify-start p-8 pt-8 space-y-3 text-center">
+              <h3 className="text-4xl font-bold text-white tracking-tight">
+                {card.name}
+              </h3>
+              
+              <div className="space-y-2">
+                <div className="text-white/90 text-lg font-medium">
+                  {card.major}
+                </div>
+                <div className="text-white/90 text-lg font-medium">
+                  {card.company}
+                </div>
               </div>
             </div>
           </div>
         </div>
-
-        {/* Profile Info */}
-        <div className="p-5 space-y-3 bg-black/40 backdrop-blur-sm">
-          <div className="text-center">
-            <h3 className="text-3xl font-bold text-white tracking-tight mb-1 drop-shadow-lg">
-              {card.name}
-            </h3>
-            <div className="text-white text-base font-semibold">{card.age} years old</div>
-          </div>
-
-          <div className="space-y-2 text-center">
-            <div className="text-white text-lg font-semibold drop-shadow-md">
-              {card.major}
-            </div>
-            <div className="text-white text-lg font-semibold drop-shadow-md">
-              {card.company}
-            </div>
-            <div className="text-white text-base flex items-center justify-center gap-2 font-medium">
-              <span>📍</span>
-              {card.location}
-            </div>
-          </div>
-
-          {/* Bio */}
-          <div className="pt-3 border-t border-white/20">
-            <p className="text-white text-base leading-relaxed text-center font-medium drop-shadow-md px-2">
-              {card.bio}
-            </p>
-          </div>
-
-          {/* Interests */}
-          <div className="pt-3">
-            <div className="text-white text-sm mb-2 text-center font-semibold">Interests</div>
-            <div className="flex flex-wrap gap-2 justify-center">
-              {card.interests.map((interest, idx) => (
-                <span
-                  key={idx}
-                  className="px-4 py-2 rounded-full bg-white/20 text-white text-sm font-semibold border border-white/30 drop-shadow-md"
-                >
-                  {interest}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* Experience */}
-          <div className="pt-3 text-center border-t border-white/20">
-            <div className="text-white/90 text-sm mb-1 font-semibold">Experience</div>
-            <div className="text-white text-base font-bold">{card.experience}</div>
+        
+        {/* Back of card */}
+        <div 
+          className="absolute w-full h-full backface-hidden rounded-3xl overflow-hidden shadow-2xl border-4 border-pink-400/30 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative"
+          style={{
+            backfaceVisibility: 'hidden',
+            transform: 'rotateY(180deg)'
+          }}
+        >
+          {/* Shine animation overlay */}
+          <div className="absolute inset-0 animate-shine pointer-events-none rounded-3xl"></div>
+          
+          <div className="h-full flex items-center justify-center p-8 relative z-10">
+            {/* LinkedIn Logo */}
+            <a 
+              href={card.linkedin || "https://www.linkedin.com/"} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-white/60 hover:text-white transition-all duration-300 hover:scale-125"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <FaLinkedin size={48} />
+            </a>
           </div>
         </div>
+      </div>
+      
+      {/* Hover instruction */}
+      <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 text-white/50 text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+        Click to flip card
       </div>
     </div>
   );
@@ -558,20 +664,6 @@ const PackOpening = ({ onCardLiked }) => {
     }, 500);
   };
 
-  const revealNextCard = () => {
-    setRevealedCards((prev) => {
-      const nextIndex = prev.length;
-      if (nextIndex < currentPack.length) {
-        setIsRevealing(true);
-        setTimeout(() => {
-          setIsRevealing(false);
-        }, 600);
-        return [...prev, nextIndex];
-      }
-      return prev;
-    });
-  };
-
   const handleSwipe = (direction) => {
     if (currentCardIndex >= currentPack.length) return;
     
@@ -677,6 +769,8 @@ const PackOpening = ({ onCardLiked }) => {
             {/* Card stack */}
             <div className="relative w-full max-w-md h-[600px] flex items-center justify-center touch-none">
               {!isPackComplete && currentPack.map((card, index) => {
+            <div className="relative w-full max-w-md h-[480px] flex items-center justify-center touch-none">
+              {currentPack.map((card, index) => {
                 const isRevealed = revealedCards.includes(index);
                 const isActive = index === currentCardIndex && isRevealed;
                 
@@ -691,7 +785,6 @@ const PackOpening = ({ onCardLiked }) => {
                     card={card}
                     isRevealed={isRevealed}
                     isActive={isActive}
-                    onReveal={() => {}}
                     onSwipe={handleSwipe}
                   />
                 );
@@ -700,6 +793,8 @@ const PackOpening = ({ onCardLiked }) => {
               {/* Pack wrapper for unrevealed cards */}
               {!isPackComplete && !isCurrentCardRevealed && currentCard && (
                 <div className="absolute w-80 h-[600px] rounded-3xl overflow-hidden shadow-2xl border-4 border-pink-400/50 bg-gradient-to-br from-pink-600 via-purple-600 to-blue-600 flex items-center justify-center animate-pulse pointer-events-none">
+              {!isCurrentCardRevealed && currentCard && (
+                <div className="absolute w-80 h-[480px] rounded-3xl overflow-hidden shadow-2xl border-4 border-yellow-400/50 bg-gradient-to-br from-yellow-600 via-orange-600 to-red-600 flex items-center justify-center animate-pulse pointer-events-none">
                   <div className="text-center p-8">
                     <div className="text-8xl mb-4 animate-bounce-slow">📦</div>
                     <div className="text-white text-2xl font-bold mb-2">Daily Pack</div>

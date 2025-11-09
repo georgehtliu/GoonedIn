@@ -1,8 +1,8 @@
 import { useCallback, useState, useEffect } from 'react';
 import Particles from 'react-particles';
 import { loadSlim } from 'tsparticles-slim';
+import { FaLinkedin } from 'react-icons/fa';
 import PackOpening from './PackOpening';
-import Roster from './Roster';
 
 const ProfileCard = () => {
   const [isFlipped, setIsFlipped] = useState(false);
@@ -50,21 +50,55 @@ const ProfileCard = () => {
       />
       
       <div 
-        className="relative w-full h-full transition-transform duration-700 preserve-3d"
+        className="relative w-full h-full transition-transform duration-700 preserve-3d z-20"
         style={{
           transformStyle: 'preserve-3d',
           transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
         }}
       >
-        {/* Front of card */}
+        {/* Prestigious solid metallic gold border - only border frame */}
         <div 
+          className="absolute inset-0 rounded-3xl z-10 backface-hidden pointer-events-none"
+          style={{
+            padding: '3px',
+            background: 'linear-gradient(135deg, #8b6914 0%, #A57B00 25%, #b8860b 50%, #A57B00 75%, #8b6914 100%)',
+            WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+            WebkitMaskComposite: 'xor',
+            mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+            maskComposite: 'exclude',
+            backfaceVisibility: 'visible'
+          }}
+        >
+          <div className="w-full h-full rounded-3xl bg-transparent"></div>
+        </div>
+        <div 
+          className="absolute inset-0 rounded-3xl z-10 animate-metallic-shine backface-hidden pointer-events-none"
+          style={{
+            padding: '2px',
+            WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+            WebkitMaskComposite: 'xor',
+            mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+            maskComposite: 'exclude',
+            backfaceVisibility: 'visible'
+          }}
+        >
+          <div 
+            className="w-full h-full rounded-3xl"
+            style={{
+              background: 'linear-gradient(135deg, #A57B00 0%, #c99a1a 20%, #d4af37 40%, #c99a1a 60%, #A57B00 100%)'
+            }}
+          ></div>
+        </div>
+        
+        {/* Front of card */}
+        <div
           className="absolute w-full h-full backface-hidden rounded-3xl overflow-hidden shadow-2xl border-2 border-white/20"
           style={{ backfaceVisibility: 'hidden' }}
         >
           {/* Card content */}
           <div className="relative h-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
             {/* Profile Image */}
-            <div className="h-[320px] relative overflow-hidden">
+            <div className="h-[280px] relative overflow-hidden">
               {/* Gradient background */}
               <div className="absolute inset-0 bg-gradient-to-br from-pink-600/30 via-purple-600/30 to-blue-600/30" />
               
@@ -90,37 +124,16 @@ const ProfileCard = () => {
                     <div className="w-full h-full rounded-full bg-transparent"></div>
                   </div>
                   
-                  {/* Floating particles around avatar */}
-                  {[...Array(8)].map((_, i) => {
-                    const angle = (i / 8) * Math.PI * 2;
-                    const radius = 140;
-                    const x = Math.cos(angle) * radius;
-                    const y = Math.sin(angle) * radius;
-                    return (
-                      <div
-                        key={i}
-                        className="absolute w-3 h-3 rounded-full bg-gradient-to-r from-pink-400 to-purple-400 animate-particle-cycle"
-                        style={{
-                          top: '50%',
-                          left: '50%',
-                          transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
-                          animationDelay: `${i * 0.5}s`,
-                          boxShadow: '0 0 10px rgba(236, 72, 153, 0.8), 0 0 20px rgba(168, 85, 247, 0.6)'
-                        }}
-                      />
-                    );
-                  })}
-                  
                   {/* Avatar */}
                   <div className="relative w-52 h-52 rounded-full overflow-hidden shadow-2xl border-4 border-white/30">
                     <img 
-                      src="/georgeliu.jpeg" 
-                      alt="George Liu" 
+                      src="/camille-yang.jpeg"
+                      alt="camille yang"
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         // Fallback to initials if image fails to load
                         e.target.style.display = 'none';
-                        e.target.parentElement.classList.add('bg-gradient-to-br', 'from-pink-500', 'via-purple-500', 'to-blue-500', 'flex', 'items-center', 'justify-center');
+                        e.target.parentElement.classList.add('bg-gradient-to-br', 'from-pink-500', 'via-purple-500','to-blue-500', 'flex', 'items-center', 'justify-center');
                         e.target.parentElement.innerHTML = '<span class="text-white text-7xl font-bold">GL</span>';
                       }}
                     />
@@ -140,18 +153,21 @@ const ProfileCard = () => {
               />
             </div>
             
+            {/* Border divider */}
+            <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+            
             {/* Profile Info */}
-            <div className="p-8 space-y-3 text-center flex items-center justify-center flex-col" style={{ minHeight: 'calc(100% - 320px)' }}>
+            <div className="flex-1 flex flex-col items-center justify-start p-8 pt-8 space-y-3 text-center">
               <h3 className="text-4xl font-bold text-white tracking-tight">
-                George Liu
+                Camille Yang
               </h3>
               
-              <div className="space-y-2 pt-2">
+              <div className="space-y-2">
                 <div className="text-white/90 text-lg font-medium">
                   CS @uwaterloo
                 </div>
                 <div className="text-white/90 text-lg font-medium">
-                  SWE @Tesla
+                  SDE @amazon
                 </div>
               </div>
             </div>
@@ -160,23 +176,25 @@ const ProfileCard = () => {
         
         {/* Back of card */}
         <div 
-          className="absolute w-full h-full backface-hidden rounded-3xl overflow-hidden shadow-2xl border-4 border-pink-400/30 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900"
-          style={{ 
+          className="absolute w-full h-full backface-hidden rounded-3xl overflow-hidden shadow-2xl border-4 border-pink-400/30 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative"
+          style={{
             backfaceVisibility: 'hidden',
             transform: 'rotateY(180deg)'
           }}
         >
-          <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-4">
-            <div className="w-20 h-20 bg-gradient-to-br from-pink-400 to-purple-500 rounded-full flex items-center justify-center text-4xl shadow-2xl">
-              💝
-            </div>
-            <h4 className="text-2xl font-bold text-white">Want to connect?</h4>
-            <p className="text-white/70 text-sm">
-              Open your daily pack to see if George is one of your 5 matches today!
-            </p>
-            <button className="mt-4 px-6 py-3 bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-full font-semibold hover:scale-105 transition-transform shadow-lg">
-              Open Today's Pack
-            </button>
+          {/* Shine animation overlay */}
+          <div className="absolute inset-0 animate-shine pointer-events-none rounded-3xl"></div>
+          
+          <div className="h-full flex items-center justify-center p-8 relative z-10">
+            {/* LinkedIn Logo */}
+            <a 
+              href="https://www.linkedin.com/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-white/60 hover:text-white transition-all duration-300 hover:scale-125"
+            >
+              <FaLinkedin size={48} />
+            </a>
           </div>
         </div>
       </div>
@@ -189,7 +207,126 @@ const ProfileCard = () => {
   );
 };
 
-const DatingLandingPage = () => {
+export default function DatingLandingPage() {
+  const [mousePosition, setMousePosition] = useState({ x: 50, y: 50 });
+  const [surveyStarted, setSurveyStarted] = useState(false);
+  const [showSurvey, setShowSurvey] = useState(false);
+  const [showPackOpening, setShowPackOpening] = useState(false);
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [prevQuestion, setPrevQuestion] = useState(0);
+  const [answers, setAnswers] = useState({});
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [slideDirection, setSlideDirection] = useState('forward'); // 'forward' or 'backward'
+
+  const questions = [
+    {
+      id: 'industry',
+      question: 'What industry are you interested in?',
+      options: ['Technology', 'Finance', 'Healthcare', 'Education', 'Business', 'Self-Employed', 'Other'],
+      type: 'multiple-choice'
+    },
+    {
+      id: 'major',
+      question: 'What major are you looking for?',
+      options: ['Math', 'Computer Science', 'Engineering', 'Business', 'Medicine', 'Arts', 'Other'],
+      type: 'multiple-choice'
+    },
+    {
+      id: 'school',
+      question: 'Which school do you prefer?',
+      type: 'text-input',
+      placeholder: 'Enter school name...'
+    },
+    {
+      id: 'location',
+      question: 'Where are you located?',
+      type: 'text-input',
+      placeholder: 'Enter your location...'
+    }
+  ];
+
+  const handleStartSurvey = () => {
+    setShowSurvey(true); // Render survey in DOM first (at opacity-0)
+    // Use requestAnimationFrame to ensure survey is in DOM before starting fade
+    requestAnimationFrame(() => {
+      setSurveyStarted(true); // Trigger simultaneous fade-out of hero and fade-in of survey
+    });
+  };
+
+  const handleAnswer = (option) => {
+    setAnswers(prev => ({
+      ...prev,
+      [questions[currentQuestion].id]: option
+    }));
+
+    // Slide out current question to left, then slide in next question from right
+    if (currentQuestion < questions.length - 1) {
+      setIsTransitioning(true);
+      setSlideDirection('forward');
+      setPrevQuestion(currentQuestion);
+      setTimeout(() => {
+        setCurrentQuestion(prev => prev + 1);
+        // Small delay to ensure new question starts from right
+        requestAnimationFrame(() => {
+          setIsTransitioning(false);
+        });
+      }, 500);
+    } else {
+      // Survey complete - navigate to pack opening
+      console.log('Survey answers:', { ...answers, [questions[currentQuestion].id]: option });
+      setShowPackOpening(true);
+    }
+  };
+
+  const handleTextInput = (value) => {
+    setAnswers(prev => ({
+      ...prev,
+      [questions[currentQuestion].id]: value
+    }));
+  };
+
+  const handleTextSubmit = () => {
+    const currentAnswer = answers[questions[currentQuestion].id];
+    if (currentAnswer && currentAnswer.trim() !== '') {
+      // Slide out current question to left, then slide in next question from right
+      if (currentQuestion < questions.length - 1) {
+        setIsTransitioning(true);
+        setSlideDirection('forward');
+        setPrevQuestion(currentQuestion);
+        setTimeout(() => {
+          setCurrentQuestion(prev => prev + 1);
+          requestAnimationFrame(() => {
+            setIsTransitioning(false);
+          });
+        }, 500);
+      } else {
+        // Survey complete - navigate to pack opening
+        console.log('Survey answers:', answers);
+        setShowPackOpening(true);
+      }
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentQuestion > 0) {
+      setIsTransitioning(true);
+      setSlideDirection('backward');
+      setPrevQuestion(currentQuestion);
+      setTimeout(() => {
+        setCurrentQuestion(prev => prev - 1);
+        requestAnimationFrame(() => {
+          setIsTransitioning(false);
+        });
+      }, 500);
+    } else {
+      // Go back to landing page
+      setShowSurvey(false);
+      setSurveyStarted(false);
+      setCurrentQuestion(0);
+      setAnswers({});
+    }
+  };
+
   const particlesInit = useCallback(async (engine) => {
     await loadSlim(engine);
   }, []);
@@ -234,7 +371,7 @@ const DatingLandingPage = () => {
       },
       move: {
         enable: true,
-        speed: 0.5,
+        speed: 0.3,
         direction: "none",
         random: false,
         straight: false,
@@ -243,31 +380,67 @@ const DatingLandingPage = () => {
         },
         bounce: false,
         attract: {
-          enable: false,
+          enable: true,
           rotateX: 600,
           rotateY: 1200
         }
       }
     },
     interactivity: {
-      detectsOn: "canvas",
+      detectsOn: "window",
       events: {
         onHover: {
-          enable: false
+          enable: true,
+          mode: "attract",
+          parallax: {
+            enable: true,
+            force: 60,
+            smooth: 10
+          }
         },
         onClick: {
           enable: false
         },
         resize: true
+      },
+      modes: {
+        attract: {
+          distance: 200,
+          duration: 0.4,
+          easing: "ease-out-quad",
+          factor: 1,
+          speed: 1
+        }
       }
     },
     detectRetina: true
   };
 
+  // Calculate parallax offset based on mouse position
+  const parallaxX = (mousePosition.x - 50) * 0.02;
+  const parallaxY = (mousePosition.y - 50) * 0.02;
+
+  // Show PackOpening after survey is complete
+  if (showPackOpening) {
+    return <PackOpening />;
+  }
+
   return (
-    <div className="h-screen w-screen bg-black text-white overflow-hidden fixed inset-0">
-      {/* Starfield Background */}
-      <div className="absolute inset-0 z-0">
+    <div 
+      className="h-screen w-screen bg-black text-white overflow-hidden fixed inset-0"
+      onMouseMove={(e) => {
+        const x = (e.clientX / window.innerWidth) * 100;
+        const y = (e.clientY / window.innerHeight) * 100;
+        setMousePosition({ x, y });
+      }}
+    >
+      {/* Starfield Background with parallax */}
+      <div 
+        className="absolute inset-0 z-0 transition-transform duration-300 ease-out"
+        style={{
+          transform: `translate(${parallaxX}px, ${parallaxY}px) scale(1.05)`
+        }}
+      >
         <Particles
           id="tsparticles"
           init={particlesInit}
@@ -278,44 +451,189 @@ const DatingLandingPage = () => {
       {/* Hero Content */}
       <div className="relative z-20 h-full flex items-center justify-center px-6">
         <div className="max-w-7xl w-full grid lg:grid-cols-2 gap-12 items-center">
-          {/* Left side - Text content */}
-          <div className="text-left lg:pl-8">
-            <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold mb-6 text-white drop-shadow-2xl">
-              Swipe Less,<br />Connect More
-            </h1>
-            <p className="text-lg md:text-xl lg:text-2xl mb-10 text-white/80 drop-shadow-lg max-w-xl">
-              Quality over quantity. Get 5 meaningful matches daily based on your interests, major, and goals.
-            </p>
-            <div className="relative inline-block">
-              {/* Neon glow layers */}
-              <div className="absolute inset-0 rounded-full bg-pink-500 blur-xl opacity-75 animate-pulse-glow"></div>
-              <div className="absolute inset-0 rounded-full bg-pink-400 blur-2xl opacity-50 animate-pulse-glow-delayed"></div>
-              <div className="absolute -inset-1 rounded-full bg-pink-300 blur-sm opacity-60 animate-pulse-glow-slow"></div>
-              {/* Button */}
-              <button className="relative bg-gradient-to-r from-pink-500 via-pink-400 to-pink-500 text-white px-12 py-5 rounded-full text-xl font-semibold transition-all duration-300 shadow-[0_0_20px_rgba(236,72,153,0.6),0_0_40px_rgba(236,72,153,0.4)] hover:shadow-[0_0_30px_rgba(236,72,153,0.8),0_0_60px_rgba(236,72,153,0.6)] hover:scale-105 active:scale-95">
-                Sign in with LinkedIn
-              </button>
+          {/* Left side - Text content (fades out) or Survey Questions (fades in) */}
+          <div className="text-left lg:pl-8 relative min-h-[400px]">
+            {/* Hero Content - Fades out */}
+            <div 
+              className={`absolute inset-0 transition-opacity duration-300 ease-in-out ${
+                surveyStarted ? 'opacity-0 pointer-events-none' : 'opacity-100'
+              }`}
+            >
+                <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold mb-6 text-white drop-shadow-2xl">
+                  Scroll Less,<br />Find More
+                </h1>
+                <p className="text-lg md:text-xl lg:text-2xl mb-10 text-white/80 drop-shadow-lg max-w-xl">
+                  Find your first linkedin baddie TODAY! Based on your industry, major, and school.
+                </p>
+                <div className="relative inline-block">
+                  {/* Neon glow layers */}
+                  <div className="absolute inset-0 rounded-full bg-pink-500 blur-xl opacity-75 animate-pulse-glow"></div>
+                  <div className="absolute inset-0 rounded-full bg-pink-400 blur-2xl opacity-50 animate-pulse-glow-delayed"></div>
+                  <div className="absolute -inset-1 rounded-full bg-pink-300 blur-sm opacity-60 animate-pulse-glow-slow"></div>
+                  {/* Button */}
+                  <button 
+                    onClick={handleStartSurvey}
+                    className="relative bg-gradient-to-r from-pink-500 via-pink-400 to-pink-500 text-white px-12 py-5 rounded-full text-xl font-semibold transition-all duration-300 shadow-[0_0_20px_rgba(236,72,153,0.6),0_0_40px_rgba(236,72,153,0.4)] hover:shadow-[0_0_30px_rgba(236,72,153,0.8),0_0_60px_rgba(236,72,153,0.6)] hover:scale-105 active:scale-95"
+                  >
+                    Choose Your Preferences Now
+                  </button>
+                </div>
             </div>
-            
-            {/* Quick stats */}
-            <div className="mt-12 flex gap-8 text-sm">
-              <div>
-                <div className="text-3xl font-bold text-pink-400">10K+</div>
-                <div className="text-white/60">Active Users</div>
+
+            {/* Survey Questions - Fades in simultaneously with hero fade-out */}
+            {showSurvey && (
+              <div className={`absolute inset-0 w-full transition-opacity duration-300 ease-in-out ${
+                surveyStarted ? 'opacity-100' : 'opacity-0'
+              }`}>
+                {/* Progress indicator - Always visible, outside transitioning content */}
+                <div className="mb-8">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-white/60 text-sm">Question {currentQuestion + 1} of {questions.length}</span>
+                    <span className="text-white/60 text-sm">{Math.round(((currentQuestion + 1) / questions.length) * 100)}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 transition-all duration-500 rounded-full"
+                      style={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Question content - Slides left/right */}
+                <div className="relative overflow-hidden">
+                  {/* Previous question sliding out */}
+                  {isTransitioning && (
+                    <div 
+                      key={`prev-${prevQuestion}`}
+                      className={`absolute inset-0 transition-transform duration-500 ease-in-out ${
+                        slideDirection === 'forward' 
+                          ? '-translate-x-full'  // Slide out to left when going forward
+                          : 'translate-x-full'   // Slide out to right when going backward
+                      }`}
+                    >
+                      <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-12 drop-shadow-2xl">
+                        {questions[prevQuestion].question}
+                      </h2>
+                      {questions[prevQuestion].type === 'text-input' ? (
+                        <div className="flex items-center gap-4 opacity-50">
+                          <input
+                            type="text"
+                            value={answers[questions[prevQuestion].id] || ''}
+                            disabled
+                            className="flex-1 bg-transparent text-white/80 text-2xl md:text-3xl"
+                          />
+                          <span className="text-3xl md:text-4xl text-white/30">→</span>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {questions[prevQuestion].options.map((option, index) => (
+                            <button
+                              key={index}
+                              disabled
+                              className="p-3 rounded-xl text-center bg-white/5 text-white/80 border border-white/10 opacity-50"
+                            >
+                              <span className="text-sm md:text-base font-medium">{option}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Current question - slides in from right/left based on direction */}
+                  <div 
+                    key={`current-${currentQuestion}`}
+                    className={`transition-transform duration-500 ease-in-out ${
+                      isTransitioning && currentQuestion !== prevQuestion
+                        ? (slideDirection === 'forward'
+                          ? 'translate-x-full'   // New question starting from right when going forward
+                          : '-translate-x-full')  // New question starting from left when going backward
+                        : isTransitioning && currentQuestion === prevQuestion
+                        ? (slideDirection === 'forward'
+                          ? '-translate-x-full'  // Current question sliding out to left when going forward
+                          : 'translate-x-full')   // Current question sliding out to right when going backward
+                        : 'translate-x-0'         // Normal position
+                    }`}
+                  >
+                    {/* Question */}
+                    <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-12 drop-shadow-2xl">
+                      {questions[currentQuestion].question}
+                    </h2>
+
+                    {/* Multiple Choice Options or Text Input */}
+                    {questions[currentQuestion].type === 'text-input' ? (
+                      <div className="flex items-center gap-4">
+                        <input
+                          type="text"
+                          value={answers[questions[currentQuestion].id] || ''}
+                          onChange={(e) => handleTextInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleTextSubmit();
+                            }
+                          }}
+                          placeholder={questions[currentQuestion].placeholder}
+                          className="flex-1 bg-transparent text-white placeholder-white/50 focus:outline-none text-2xl md:text-3xl"
+                        />
+                        <button
+                          onClick={handleTextSubmit}
+                          disabled={!answers[questions[currentQuestion].id] || answers[questions[currentQuestion].id].trim() === ''}
+                          className={`text-3xl md:text-4xl transition-all duration-300 ${
+                            answers[questions[currentQuestion].id] && answers[questions[currentQuestion].id].trim() !== ''
+                              ? 'text-white cursor-pointer hover:scale-110'
+                              : 'text-white/30 cursor-not-allowed'
+                          }`}
+                        >
+                          →
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-2">
+                        {questions[currentQuestion].options.map((option, index) => {
+                          const isSelected = answers[questions[currentQuestion].id] === option;
+                          return (
+                            <button
+                              key={index}
+                              onClick={() => handleAnswer(option)}
+                              className={`p-3 rounded-xl text-center transition-all duration-300 transform cursor-pointer ${
+                                isSelected
+                                  ? 'bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white shadow-lg shadow-pink-500/50 scale-105'
+                                  : 'bg-white/5 text-white/80 hover:bg-white/10 hover:text-white border border-white/10 hover:scale-[1.02]'
+                              }`}
+                            >
+                              <div className="flex items-center justify-center gap-2">
+                                <span className="text-sm md:text-base font-medium">{option}</span>
+                                {isSelected && (
+                                  <span className="text-lg">✓</span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Previous button */}
+                    <div className="mt-8">
+                      <button
+                        onClick={handlePrevious}
+                        className="text-white/80 hover:text-white transition-colors duration-300 cursor-pointer flex items-center gap-2 text-lg font-medium"
+                      >
+                        <span>←</span>
+                        <span>Previous</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div>
-                <div className="text-3xl font-bold text-pink-400">50K+</div>
-                <div className="text-white/60">Matches Made</div>
-              </div>
-              <div>
-                <div className="text-3xl font-bold text-pink-400">4.9★</div>
-                <div className="text-white/60">User Rating</div>
-              </div>
-            </div>
+            )}
           </div>
           
-          {/* Right side - Card demo */}
-          <div className="flex items-center justify-center lg:justify-end lg:pr-8">
+          {/* Right side - Card demo (stays visible) */}
+          <div className="flex flex-col items-center justify-center lg:justify-end lg:pr-8">
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-6 text-center lg:text-right drop-shadow-lg">
+              Your Profile
+            </h2>
             <ProfileCard />
           </div>
         </div>
