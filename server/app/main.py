@@ -1,11 +1,16 @@
 import base64
+import csv
 import uuid
 import os
 import asyncio
 import logging
+import re
+import io
+import json
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Literal
 from urllib.parse import quote_plus
+from datetime import datetime
 
 import httpx
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -14,6 +19,7 @@ from pydantic import BaseModel, Field
 from gender_guesser import detector as gender_detector
 import google.generativeai as genai
 from dotenv import load_dotenv
+from motor.motor_asyncio import AsyncIOMotorClient
 
 # Load environment variables
 load_dotenv()
@@ -32,6 +38,10 @@ if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 else:
     logger.warning("GEMINI_API_KEY not found in environment variables")
+
+
+mongo_client: AsyncIOMotorClient | None = None
+mongo_collection = None
 
 
 def _extract_primary_score(raw: Any) -> Any:
@@ -169,7 +179,7 @@ class PhantomProfile(BaseModel):
 
 class PhantomSearchRequest(BaseModel):
   query: str = Field(default="Waterloo girls", min_length=1, max_length=200)
-  limit: int = Field(default=5, ge=1, le=10)
+  limit: int = Field(default=50, ge=1, le=50)
   search_url: str | None = None
   category: str | None = None
   search_type: str | None = None
@@ -239,6 +249,18 @@ class PhantomSearchResponse(BaseModel):
   output_url: str | None = None
 
 
+class SaveSearchRequest(BaseModel):
+  query: str = Field(..., min_length=1, max_length=500)
+  result: str = Field(..., min_length=1)
+
+
+class SaveSearchResponse(BaseModel):
+  id: str
+  query: str
+  result: str
+  created_at: datetime
+
+
 def _infer_gender_from_name(name: str | None) -> Literal["woman", "man"] | None:
   if not name:
     return None
@@ -256,10 +278,55 @@ def _infer_gender_from_name(name: str | None) -> Literal["woman", "man"] | None:
   return None
 
 
+def _extract_name_from_row(row: dict[str, Any] | None) -> str | None:
+  if not row:
+    return None
+
+  for key in (
+    "fullName",
+    "name",
+    "profileFullName",
+    "profileName",
+    "firstName"
+  ):
+    value = row.get(key)
+    if isinstance(value, str) and value.strip():
+      return value
+
+  return None
+
+
+def _filter_rows_by_gender(rows: list[dict[str, Any]], gender: Literal["woman", "man"] | None) -> list[dict[str, Any]]:
+  if gender is None:
+    return rows
+
+  filtered: list[dict[str, Any]] = []
+  for row in rows:
+    inferred = _infer_gender_from_name(_extract_name_from_row(row))
+    if inferred == gender:
+      filtered.append(row)
+  return filtered
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-  # Add startup/shutdown hooks here (e.g., DB connections, clients)
-  yield
+  global mongo_client, mongo_collection
+  mongo_uri = os.getenv("MONGODB_URI") or "mongodb+srv://gooner123:gooner123@cluster0.9xkp2kk.mongodb.net/?appName=Cluster0"
+  mongo_db_name = os.getenv("MONGODB_DB", "linkedin_baddie_finder")
+  mongo_collection_name = os.getenv("MONGODB_COLLECTION", "search_results")
+  mongo_client = AsyncIOMotorClient(mongo_uri)
+  mongo_collection = mongo_client[mongo_db_name][mongo_collection_name]
+  try:
+    await mongo_client.admin.command("ping")
+    logger.info("Connected to MongoDB cluster '%s' (database=%s, collection=%s)", mongo_uri, mongo_db_name, mongo_collection_name)
+  except Exception as exc:
+    logger.error("Failed to connect to MongoDB: %s", exc)
+    raise RuntimeError("Unable to connect to MongoDB") from exc
+  try:
+    yield
+  finally:
+    if mongo_client:
+      mongo_client.close()
 
 
 app = FastAPI(
@@ -280,6 +347,182 @@ app.add_middleware(
 @app.get("/health")
 async def read_health() -> dict[str, str]:
   return {"message": "Service is healthy"}
+
+
+@app.get("/phantombuster/search-cache")
+async def phantombuster_search_cache(
+  query: str,
+  limit: int =50,
+  gender: Literal["woman", "man"] | None = None
+) -> dict[str, Any]:
+  trimmed_query = query.strip()
+  if not trimmed_query:
+    raise HTTPException(status_code=400, detail="Query must be a non-empty string.")
+
+  if mongo_collection is None:
+    raise HTTPException(status_code=500, detail="MongoDB is not configured.")
+
+  cached_document = await mongo_collection.find_one(
+    {"query": trimmed_query, "response": {"$exists": True}},
+    sort=[("created_at", -1)]
+  )
+  if cached_document and isinstance(cached_document.get("response"), dict):
+    stored_response = dict(cached_document["response"])
+    stored_rows = stored_response.get("csv_data") or []
+    filtered_rows = _filter_rows_by_gender(list(stored_rows), gender)
+    filtered_first_row = filtered_rows[0] if filtered_rows else None
+
+    response_payload = dict(stored_response)
+    response_payload["csv_data"] = filtered_rows
+    response_payload["csv_row_count"] = len(filtered_rows)
+    response_payload["first_row"] = filtered_first_row
+    response_payload["filter_gender"] = gender
+    response_payload["total_csv_row_count"] = len(stored_rows)
+    response_payload["mongo_document_id"] = str(cached_document["_id"])
+    response_payload["cached"] = True
+    return response_payload
+
+  api_key = os.getenv("PHANTOMBUSTER_API_KEY")
+  agent_id = os.getenv("PHANTOMBUSTER_SEARCH_AGENT_ID")
+  session_cookie = os.getenv("PHANTOMBUSTER_SESSION_COOKIE")
+
+  if not api_key or not agent_id:
+    raise HTTPException(status_code=500, detail="PhantomBuster credentials are not configured.")
+
+  if not session_cookie:
+    raise HTTPException(status_code=500, detail="PhantomBuster session cookie is not configured (missing PHANTOMBUSTER_SESSION_COOKIE).")
+
+  trimmed_limit = min(max(limit, 1), 50)
+  dynamic_search_url = f"https://www.linkedin.com/search/results/all/?keywords={quote_plus(trimmed_query)}&origin=GLOBAL_SEARCH_HEADER"
+  search_request = PhantomSearchRequest(
+    query=trimmed_query,
+    limit=trimmed_limit,
+    search_url=dynamic_search_url,
+    results_per_launch=trimmed_limit,
+    results_per_search=trimmed_limit
+  )
+
+  launch_headers = {
+    "X-Phantombuster-Key-1": api_key,
+    "Content-Type": "application/json"
+  }
+  fetch_headers = {
+    "X-Phantombuster-Key": api_key,
+    "accept": "application/json"
+  }
+
+  container_id: str | None = None
+  container_status: str | None = None
+  fetch_payload: dict[str, Any] = {}
+
+  async with httpx.AsyncClient(timeout=30.0) as client:
+    launch_body = {
+      "id": agent_id,
+      "argument": _build_search_argument(search_request, session_cookie)
+    }
+    launch_resp = await client.post(f"{PHANTOMBUSTER_BASE_URL}/agents/launch", headers=launch_headers, json=launch_body)
+    launch_resp.raise_for_status()
+    launch_data = launch_resp.json()
+    container_id = str(launch_data.get("containerId") or launch_data.get("data", {}).get("id") or "")
+    if not container_id:
+      logger.error("PhantomBuster launch response missing containerId: %s", launch_data)
+      raise HTTPException(status_code=502, detail="PhantomBuster launch did not return a container identifier.")
+
+    logger.info("Launched PhantomBuster agent %s (container %s) for query '%s'", agent_id, container_id, trimmed_query)
+
+    elapsed = 0
+    container_payload: dict[str, Any] | None = None
+    while elapsed <= PHANTOMBUSTER_MAX_WAIT_SECONDS:
+      container_resp = await client.get(
+        f"{PHANTOMBUSTER_BASE_URL}/containers/fetch",
+        headers=launch_headers,
+        params={"id": container_id}
+      )
+      container_resp.raise_for_status()
+      container_payload = container_resp.json()
+      container = container_payload.get("container") or container_payload
+      container_status = container.get("status")
+      logger.debug("PhantomBuster container %s status=%s", container_id, container_status)
+
+      if container_status in {"finished", "failed", "aborted", "stopped"}:
+        break
+
+      await asyncio.sleep(PHANTOMBUSTER_POLL_INTERVAL_SECONDS)
+      elapsed += PHANTOMBUSTER_POLL_INTERVAL_SECONDS
+
+    if not container_payload or container_status != "finished":
+      logger.error("PhantomBuster container %s ended with status %s", container_id, container_status)
+      raise HTTPException(status_code=502, detail=f"PhantomBuster run ended with status: {container_status}")
+
+    fetch_resp = await client.get(
+      f"{PHANTOMBUSTER_BASE_URL}/agents/fetch-output",
+      headers=fetch_headers,
+      params={"id": agent_id}
+    )
+    fetch_resp.raise_for_status()
+    fetch_payload = fetch_resp.json()
+
+    output_value = fetch_payload.get("output")
+    if output_value is None and isinstance(fetch_payload.get("container"), dict):
+      output_value = fetch_payload["container"].get("output")
+
+    if isinstance(output_value, str):
+      output_text = output_value
+    else:
+      output_text = json.dumps(output_value or "", ensure_ascii=False)
+
+    csv_url: str | None = None
+    match = re.search(r"https://\S+?\.csv", output_text)
+    if match:
+      csv_url = match.group(0).rstrip(")\"'")
+
+    csv_rows: list[dict[str, Any]] = []
+    first_row: dict[str, Any] | None = None
+    if csv_url:
+      csv_response = await client.get(csv_url)
+      csv_response.raise_for_status()
+      csv_file = io.StringIO(csv_response.text)
+      reader = csv.DictReader(csv_file)
+      csv_rows = list(reader)
+      logger.info("Fetched %d rows from PhantomBuster CSV %s for query '%s'", len(csv_rows), csv_url, trimmed_query)
+      print(f"[phantombuster-test] query={trimmed_query} csv_url={csv_url} rows={len(csv_rows)}")
+      if csv_rows:
+        first_row = csv_rows[0]
+        print(f"[phantombuster-test] first_row={first_row}")
+
+  stored_payload: dict[str, Any] = {
+    "query": trimmed_query,
+    "agent_id": agent_id,
+    "container_id": container_id,
+    "status": container_status or fetch_payload.get("status"),
+    "output": output_text,
+    "csv_url": csv_url,
+    "csv_row_count": len(csv_rows),
+    "csv_data": csv_rows,
+    "first_row": first_row
+  }
+
+  insert_result = await mongo_collection.insert_one(
+    {
+      "query": trimmed_query,
+      "response": stored_payload,
+      "created_at": datetime.utcnow()
+    }
+  )
+
+  filtered_rows = _filter_rows_by_gender(list(csv_rows), gender)
+  filtered_first_row = filtered_rows[0] if filtered_rows else None
+
+  response_payload = dict(stored_payload)
+  response_payload["csv_data"] = filtered_rows
+  response_payload["csv_row_count"] = len(filtered_rows)
+  response_payload["first_row"] = filtered_first_row
+  response_payload["filter_gender"] = gender
+  response_payload["total_csv_row_count"] = len(csv_rows)
+  response_payload["mongo_document_id"] = str(insert_result.inserted_id)
+  response_payload["cached"] = False
+
+  return response_payload
 
 
 @app.post("/beauty-score", response_model=BeautyScoreResponse)
@@ -454,6 +697,28 @@ async def phantombuster_linkedin_search(payload: PhantomSearchRequest) -> Phanto
   except asyncio.TimeoutError as exc:
     logger.error("Timed out waiting for PhantomBuster container: %s", exc)
     raise HTTPException(status_code=504, detail="Timed out waiting for PhantomBuster results.") from exc
+
+
+@app.post("/mongo/save-search", response_model=SaveSearchResponse)
+async def save_search_to_mongo(payload: SaveSearchRequest) -> SaveSearchResponse:
+  if mongo_collection is None:
+    raise HTTPException(status_code=500, detail="MongoDB is not configured.")
+
+  document = {
+    "query": payload.query,
+    "result": payload.result,
+    "created_at": datetime.utcnow()
+  }
+
+  insert_result = await mongo_collection.insert_one(document)
+  document_id = str(insert_result.inserted_id)
+
+  return SaveSearchResponse(
+    id=document_id,
+    query=payload.query,
+    result=payload.result,
+    created_at=document["created_at"]
+  )
 
 
 class FetchContainerRequest(BaseModel):
